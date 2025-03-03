@@ -60,6 +60,14 @@ int cac_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args,
         "Configure Centralized Authentication Control",
+        args.subcmd = arg_rex0(NULL, NULL, "(get|set|enable|disable)", "{get|set|enable|disable}",
+            1, "Subcommand"),
+        arg_rem(NULL,
+            "get - get configured rules"),
+        arg_rem(NULL,
+            "set - set rules (default)"),
+        arg_rem(NULL,
+            "enable|disable - for internal use by wpa_supplicant only"),
         args.decrease = arg_rexn("d", "decrease", "[0-9]{1,3},[0-9]{1,2}",
             "<ARFS>,<percent>", 0, CAC_CFG_CHANGE_RULE_MAX, 0,
             "Auth Req Frames per Sec above which to decrease threshold by <percent>"),
@@ -72,15 +80,7 @@ int cac_init(struct morsectrl *mors, struct mm_argtable *mm_args)
             "Increase rules must be specified in ascending ARFS order (match lowest first)"),
         arg_rem(NULL,
             "Up to 8 decrease or increase rules can be configured"),
-        args.verbose = arg_lit0("v", "verbose", "Verbose output"),
-        args.subcmd = arg_rex0(NULL, NULL, "(get|set|enable|disable)", "{get|set|enable|disable}",
-            1, "Subcommand"),
-        arg_rem(NULL,
-            "get - get configured rules"),
-        arg_rem(NULL,
-            "set - set rules (default)"),
-        arg_rem(NULL,
-            "enable|disable - for internal use by wpa_supplicant only"));
+        args.verbose = arg_lit0("v", "verbose", "Verbose output"));
     return 0;
 }
 

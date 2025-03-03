@@ -26,7 +26,7 @@ static int gpio_sysfs_write(int value, const char *entry)
     }
 
     snprintf(buff, sizeof(buff), "%d", value);
-    if (write(fd, buff, 2) != 2)
+    if (write(fd, buff, strlen(buff)) != strlen(buff))
     {
         mctrl_err("Error writing to %s\n", entry);
         close(fd);

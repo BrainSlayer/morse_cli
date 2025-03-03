@@ -16,6 +16,9 @@
 #include "portable_endian.h"
 #include "morsectrl.h"
 
+/** The maximum size of a confirm packet. */
+#define MORSE_CMD_CFM_LEN 1584
+
 #define PACKED __attribute__((packed))
 
 /*
@@ -100,6 +103,8 @@ enum morse_commands_id
     MORSE_COMMAND_UPHY_STATS_LOG_DEPRECATED = 0x000E,
     MORSE_COMMAND_UPHY_STATS_LOG = 0x200E,
     MORSE_COMMAND_UPHY_STATS_RESET = 0x200F,
+
+    MORSE_COMMAND_GET_RC_STATS = 0x0806,
 
     MORSE_COMMAND_SET_TX_PKT_LIFETIME_US = 0x100C,
     MORSE_COMMAND_SET_PHYSM_WATCHDOG = 0x100D,

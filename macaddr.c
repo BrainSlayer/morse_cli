@@ -50,9 +50,7 @@ int macaddr(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_MAC_ADDR,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret)
-        mctrl_err("Command macaddr Failed(%d)\n", ret);
-    else
+    if (!ret)
     {
         uint8_t *mac_octet = resp->mac_octet;
         mctrl_print("Chip MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",

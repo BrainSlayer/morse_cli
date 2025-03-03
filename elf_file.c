@@ -613,12 +613,6 @@ int load_elf(struct morsectrl *mors, int argc, char *argv[])
 
 exit:
     fclose(firmware);
-
-    if (!ret)
-        mctrl_print("ELF successfully loaded\n");
-    else
-        mctrl_err("Failed to load ELF\n");
-
     return ret;
 }
 

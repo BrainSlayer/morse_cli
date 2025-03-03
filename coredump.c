@@ -10,7 +10,7 @@
 
 int coredump_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Generate a FW coredump at: /var/log/mmcd_<hostname>_<ip>_<date>/)");
+    MM_INIT_ARGTABLE(mm_args, "Generate a FW coredump at /var/log/mmcd_<hostname>_<ip>_<date>/)");
     return 0;
 }
 
@@ -29,11 +29,6 @@ int coredump(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_COREDUMP,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Command coredump error (%d)\n", ret);
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

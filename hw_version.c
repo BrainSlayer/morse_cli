@@ -45,11 +45,7 @@ int hw_version(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_HW_VERSION,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Get hardware version failed %d\n", ret);
-    }
-    else
+    if (ret >= 0)
     {
         mctrl_print("HW Version: %s\n", hw_version->hw_version);
     }

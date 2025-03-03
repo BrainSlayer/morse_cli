@@ -126,6 +126,10 @@ typedef struct
     uint64_t max_t_off;
 } duty_cycle_stats_t;
 
+/** Histogram of how long each packet spent being handled inside the umac code. */
+typedef struct PACKED {
+    uint32_t buckets[9];
+} umac_latency_histogram_t;
 
 struct PACKED stats_response
 {

@@ -24,9 +24,9 @@ static struct arg_rex *ampdu_enable_arg;
 
 int ampdu_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, NULL,
-        ampdu_enable_arg = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
-            "Enable/disable A-MPDU sessions"),
+    MM_INIT_ARGTABLE(mm_args, "Enable/disable AMPDU",
+        ampdu_enable_arg = arg_rex1(NULL, NULL, MM_ARGTABLE_ENABLE_REGEX,
+            MM_ARGTABLE_ENABLE_DATATYPE, 0, "Enable/disable A-MPDU sessions"),
         arg_rem(NULL, "Must be run before association"));
     return 0;
 }
@@ -54,11 +54,6 @@ int ampdu(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_AMPDU,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set AMPDU mode\n");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

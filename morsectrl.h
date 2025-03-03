@@ -74,10 +74,9 @@ struct MM_CLI_HANDLER_ALIGN command_handler
     struct mm_argtable args;
 };
 
-#define _MM_CLI_HANDLER(\
+#define __MM_CLI_HANDLER(\
     command, _is_intf_cmd, _direct_chip_supported_cmd, deprecated, custom_help) \
-    __attribute__((weak)) int command##_init(struct morsectrl *mors, struct mm_argtable *mmargs); \
-    __attribute__((weak)) int command##_help(); \
+    int command##_init(struct morsectrl *mors, struct mm_argtable *mmargs); \
     __attribute__((section("cli_handlers"))) MM_CLI_HANDLER_ALIGN \
     struct command_handler command##_cli_handler = { \
         #command, \
@@ -89,11 +88,16 @@ struct MM_CLI_HANDLER_ALIGN command_handler
         deprecated, \
         custom_help }
 
+#define _MM_CLI_HANDLER( \
+    command, _is_intf_cmd, _direct_chip_supported_cmd, deprecated, custom_help) \
+    int command##_help() { return 0; } \
+    __MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, deprecated, custom_help)
+
 #define MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd) \
-     _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, false, false)
+    _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, false, false)
 
 #define MM_CLI_HANDLER_DEPRECATED(command, _is_intf_cmd, _direct_chip_supported_cmd) \
     _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, true, false)
 
 #define MM_CLI_HANDLER_CUSTOM_HELP(command, _is_intf_cmd, _direct_chip_supported_cmd) \
-     _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, false, true)
+    __MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, false, true)

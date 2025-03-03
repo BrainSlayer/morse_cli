@@ -49,7 +49,7 @@ static struct
 
 int mesh_config_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Set mesh configuration parameters",
+    MM_INIT_ARGTABLE(mm_args, "Set Mesh configuration parameters",
         args.mesh_id = arg_str1("m", NULL, "<mesh id>", "Mesh ID as a hex string"),
         args.beaconless = arg_rint0("b", NULL, "<mode>", MESH_BEACONLESS_MODE_DISABLE,
         MESH_BEACONLESS_MODE_ENABLE, "Mesh beaconless mode, "
@@ -111,11 +111,6 @@ int mesh_config(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_MESH_CONFIG,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set mesh configuration (err %d)\n", ret);
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

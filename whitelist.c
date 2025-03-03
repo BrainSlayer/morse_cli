@@ -206,12 +206,6 @@ int whitelist(struct morsectrl *mors, int argc, char *argv[])
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_WHITELIST,
                                  cmd_tbuff, rsp_tbuff);
-    if (ret < 0)
-    {
-        mctrl_err("Whitelist command failed - error(%d)\n", ret);
-        goto exit;
-    }
-
 exit:
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);

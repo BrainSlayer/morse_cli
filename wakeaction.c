@@ -27,7 +27,7 @@ static struct
 
 int wakeaction_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Send a wake action frame with the given payload to a destination",
+    MM_INIT_ARGTABLE(mm_args, "Send a wake action frame to a destination",
         args.macaddr = arg_rex1(NULL, NULL, "([a-f0-9]{2}:){5}([a-f0-9]{2})",
             "<MAC Address>", ARG_REX_ICASE, "Destination MAC address"),
         args.payload = arg_str1(NULL, NULL, "<payload>", "Hex string of payload to send"));
@@ -78,15 +78,6 @@ int wakeaction(struct morsectrl *mors, int argc, char *argv[])
         MORSE_COMMAND_SEND_WAKE_ACTION_FRAME, cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to send wake action frame\n");
-    }
-    else
-    {
-        mctrl_print("Wake action frame scheduled for transmission\n");
-    }
-
     if (cmd_tbuff)
         morsectrl_transport_buff_free(cmd_tbuff);
 

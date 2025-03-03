@@ -13,6 +13,7 @@
 #include <netlink/genl/family.h>
 #include <net/if.h>
 #include <netlink/attr.h>
+#include <fcntl.h>
 
 #include "../utilities.h"
 #include "transport.h"
@@ -20,6 +21,7 @@
 
 #define MORSE_OUI 0x0CBF74
 #define MORSE_VENDOR_CMD_TO_MORSE 0x00
+#define MORSE_VENDOR_WIPHY_CMD_TO_MORSE 0x01
 #define NL80211_BUFFER_SIZE (8192)
 
 
@@ -35,6 +37,7 @@ struct morsectrl_nl80211_cfg
 struct morsectrl_nl80211_state
 {
     int interface_index;
+    int wiphy_index;
     int nl80211_id;
     size_t *len;
     uint8_t *data;
@@ -216,6 +219,43 @@ static int morsectrl_nl80211_receive_handler(struct nl_msg *msg, void *arg)
     return NL_OK;
 }
 
+/**
+ * @brief Look up the wiphy index from the FS.
+ *
+ * @param name  wiphy interface name. e.g. phy0
+ * @return  wiphy index or -1 on failure.
+ */
+static int morsectrl_nl80211_phy_lookup(const char *name)
+{
+    char buf[DEVICE_NAME_LEN];
+    int fd, pos;
+    int phy_id = -1;
+
+    snprintf(buf, sizeof(buf), "/sys/class/ieee80211/%s/index", name);
+
+    fd = open(buf, O_RDONLY);
+    if (fd < 0)
+        return phy_id;
+
+    pos = read(fd, buf, sizeof(buf) - 1);
+    if (pos < 0) {
+        close(fd);
+        return phy_id;
+    }
+
+    /* we read a newline as well above, replace it */
+    buf[pos-1] = '\0';
+    close(fd);
+
+    if (str_to_int32(buf, &phy_id))
+    {
+        morsectrl_nl80211_error(ETRANSNL80211ERR, "morsectrl_nl80211_phy_lookup failed");
+        phy_id = -1;
+    }
+
+    return phy_id;
+}
+
 static int morsectrl_nl80211_init(struct morsectrl_transport *transport)
 {
     struct morsectrl_nl80211_state *state;
@@ -231,12 +271,18 @@ static int morsectrl_nl80211_init(struct morsectrl_transport *transport)
     cfg = nl80211_cfg(transport);
     state = nl80211_state(transport);
     state->interface_index = if_nametoindex(cfg->interface_name);
+    state->wiphy_index = -1;
 
     if (state->interface_index == 0)
     {
-        morsectrl_nl80211_error(state->interface_index, "Invalid interface index");
-
-        return -ETRANSNL80211ERR;
+        /* This could be a wiphy interface. */
+        state->wiphy_index = morsectrl_nl80211_phy_lookup(cfg->interface_name);
+        if (state->wiphy_index < 0)
+        {
+            ret = -ETRANSNL80211ERR;
+            morsectrl_nl80211_error(state->wiphy_index, "Invalid wiphy or interface index");
+            return ret;
+        }
     }
 
     state->wait_for_ack = false;
@@ -246,7 +292,7 @@ static int morsectrl_nl80211_init(struct morsectrl_transport *transport)
     {
         ret = -ENOMEM;
         morsectrl_nl80211_error(ret, "Failed to allocate netlink socket");
-        goto exit;
+        return ret;
     }
 
     ret = genl_connect(state->nl_socket);
@@ -294,7 +340,6 @@ exit_cb_free:
     nl_cb_put(state->s_cb);
 exit_socket_free:
     nl_socket_free(state->nl_socket);
-exit:
     return ret;
 }
 
@@ -396,15 +441,18 @@ static int morsectrl_nl80211_send(struct morsectrl_transport *transport,
         goto exit_message_free;
     }
 
-    ret = nla_put_u32(msg, NL80211_ATTR_IFINDEX, state->interface_index);
-    if (ret < ETRANSSUCC)
+    NLA_PUT_U32(msg, NL80211_ATTR_VENDOR_ID, MORSE_OUI);
+    if (state->wiphy_index >= 0)
     {
-        morsectrl_nl80211_error(ret, "Unable to put interface index");
-        goto exit_message_free;
+        NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, state->wiphy_index);
+        NLA_PUT_U32(msg, NL80211_ATTR_VENDOR_SUBCMD, MORSE_VENDOR_WIPHY_CMD_TO_MORSE);
+    }
+    else
+    {
+        NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, state->interface_index);
+        NLA_PUT_U32(msg, NL80211_ATTR_VENDOR_SUBCMD, MORSE_VENDOR_CMD_TO_MORSE);
     }
 
-    NLA_PUT_U32(msg, NL80211_ATTR_VENDOR_ID, MORSE_OUI);
-    NLA_PUT_U32(msg, NL80211_ATTR_VENDOR_SUBCMD, MORSE_VENDOR_CMD_TO_MORSE);
     NLA_PUT(msg, NL80211_ATTR_VENDOR_DATA, cmd->data_len, cmd->data);
 
     state->wait_for_ack = true;

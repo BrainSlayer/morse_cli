@@ -13,8 +13,9 @@ Q = @
 endif
 
 
-override MORSECTRL_VERSION_STRING = "rel_1_13_3_2024_Nov_11"
+override MORSECTRL_VERSION_STRING = "rel_1_14_1_2024_Dec_05"
 DEFAULT_INTERFACE_NAME ?= "wlan0"
+PKG_CONFIG ?= pkg-config
 
 MORSECTRL_CFLAGS = $(CFLAGS)
 MORSECTRL_CFLAGS += -Wall -Werror
@@ -71,6 +72,7 @@ SRCS += whitelist.c
 SRCS += arp_periodic_refresh.c
 SRCS += otp.c
 SRCS += power.c
+SRCS += rc_stats.c
 
 SRCS += transport/transport.c
 
@@ -103,6 +105,11 @@ ifeq ($(CONFIG_MORSE_TRANS_UART_SLIP),1)
 	WIN_SRCS += transport/uart_win.c
 endif
 
+ifeq ($(CONFIG_MORSE_TRANS_TCP_SLIP),1)
+	SRCS += transport/slip.c
+	LINUX_SRCS += transport/tcp_slip.c
+endif
+
 ifeq ($(CONFIG_MORSE_TRANS_FTDI_SPI),1)
 	SRCS += transport/ftdi_spi.c
 	SRCS += transport/sdio_over_spi.c
@@ -129,6 +136,14 @@ ifeq ($(CONFIG_MORSE_TRANS_FTDI_SPI),1)
 	LINUX_LDFLAGS += -lpthread -lrt -ldl
 endif
 
+LINUX_SRCS += usb.c
+
+ifneq (,$(shell which $(PKG_CONFIG)))
+	LINUX_CFLAGS  += $(shell $(PKG_CONFIG) --cflags libusb-1.0)
+	LINUX_LDFLAGS += $(shell $(PKG_CONFIG) --libs libusb-1.0)
+else
+	LINUX_LDFLAGS += -lusb-1.0
+endif
 
 MORSE_CLI_CFLAGS = $(MORSECTRL_CFLAGS)
 MORSE_CLI_LDFLAGS = $(MORSECTRL_LDFLAGS)

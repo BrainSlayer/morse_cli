@@ -71,11 +71,6 @@ int mbssid(struct morsectrl *mors, int argc, char *argv[])
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set MBSSID IE info\n");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

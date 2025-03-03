@@ -256,11 +256,6 @@ exit:
         mctrl_print("Removed TWT Agreement[flowid:%d]\n", twt_cmd->flow_id);
     }
 
-    if (ret)
-    {
-        mctrl_err("Command error (%d)\n", ret);
-    }
-
     if (cmd_tbuff)
     {
         morsectrl_transport_buff_free(cmd_tbuff);

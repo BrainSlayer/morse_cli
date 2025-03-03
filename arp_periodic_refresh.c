@@ -41,11 +41,11 @@ int arp_periodic_refresh_init(struct morsectrl *mors, struct mm_argtable *mm_arg
     MM_INIT_ARGTABLE(mm_args,
         "Configure the firmware to send a periodic ARP packet",
         args.arp_refresh_period_s = arg_int1("t", NULL, "<period>",
-            "Period in seconds between ARP transmissions. A value of 0 disables the feature."),
+            "Period in seconds between ARP transmissions (0 to disable)"),
         args.destination_address = arg_str0("d", NULL, "<dest IP>",
             "IP in dotted decimal notation - target protocol address field of the ARP request"),
         args.send_as_garp = arg_lit0("g", NULL,
-            "Send as a Gratuitous ARP (GARP) instead of an ARP request"));
+            "Send as a gratuitous ARP (GARP) instead of an ARP request"));
     return 0;
 }
 
@@ -115,11 +115,6 @@ int arp_periodic_refresh(struct morsectrl *mors, int argc, char *argv[])
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_ARP_PERIODIC_REFRESH,
                                  cmd_set_tbuff, rsp_set_tbuff);
-    if (ret < 0)
-    {
-        mctrl_err("Failed to set arp periodic refresh params: error(%d)\n", ret);
-        goto exit;
-    }
 
 exit:
     morsectrl_transport_buff_free(cmd_set_tbuff);

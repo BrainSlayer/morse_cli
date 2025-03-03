@@ -347,7 +347,8 @@ int stats_init(struct morsectrl *mors, struct mm_argtable *mm_args)
                      args.phy_core = arg_lit0("u", NULL, "read statistics from the PHY core"),
                      args.reset = arg_lit0("r", NULL, "reset the statistics"),
                      args.json_format = arg_lit0("j", "json", "Format the statistics in JSON"),
-                     args.pprint_format = arg_lit0("p", NULL, "Format the statistics in pprint"),
+                     args.pprint_format = arg_lit0("p", NULL,
+                         "Format the statistics in human-readable JSON"),
                      args.filter_str = arg_str0("f", "filter", "<filter>", filter_help()),
                      args.firmware_path =
                          arg_str0("s", "firmware",
@@ -430,11 +431,6 @@ int stats(struct morsectrl *mors, int argc, char *argv[])
     }
 
 exit_stats:
-    if (ret < 0)
-    {
-        mctrl_err("Command stats error (%d)\n", ret);
-    }
-
     return ret;
 }
 

@@ -53,11 +53,6 @@ int bsscolor(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_BSS_COLOR,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to set BSS color\n");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

@@ -135,7 +135,7 @@ static int get_duty_cycle(struct morsectrl *mors, bool burst_airtime_only)
 
     if (ret < 0)
     {
-        mctrl_err("Failed to read duty cycle: error (%d)\n", ret);
+        mctrl_err("Failed to read duty cycle\n");
         goto exit;
     }
 
@@ -217,10 +217,6 @@ static int set_duty_cycle(struct morsectrl *mors, struct duty_cycle_configuratio
     }
 
 exit_set:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to set duty cycle: error (%d)\n", ret);
-    }
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

@@ -138,11 +138,7 @@ int mpsw(struct morsectrl *mors, int argc, char *argv[])
                                  rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Command error (%d)\n", ret);
-    }
-    else
+    if (!ret)
     {
         print_mpsw_cfg(&rsp_mpsw->config);
     }

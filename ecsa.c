@@ -17,6 +17,16 @@
 
 #define OPCLASS_DEFAULT 0xFF
 
+/* S1G capabilities, from hostap */
+#define S1G_CAP0_S1G_LONG   BIT(0)
+#define S1G_CAP0_SGI_1MHZ   BIT(1)
+#define S1G_CAP0_SGI_2MHZ   BIT(2)
+#define S1G_CAP0_SGI_4MHZ   BIT(3)
+#define S1G_CAP0_SGI_8MHZ   BIT(4)
+#define S1G_CAP0_SGI_16MHZ  BIT(5)
+#define S1G_CAP0_SGI_ALL    ((S1G_CAP0_SGI_1MHZ | S1G_CAP0_SGI_2MHZ | \
+                             S1G_CAP0_SGI_4MHZ | S1G_CAP0_SGI_8MHZ))
+
 struct PACKED set_ecsa_command
 {
     /** Centre frequency of the operating channel */
@@ -36,6 +46,12 @@ struct PACKED set_ecsa_command
 
     /** Global Operating class for primary chan */
     uint8_t prim_opclass;
+
+    /** Configured S1G capabilities */
+    uint8_t s1g_cap0;
+    uint8_t s1g_cap1;
+    uint8_t s1g_cap2;
+    uint8_t s1g_cap3;
 };
 
 static struct
@@ -46,11 +62,13 @@ static struct
     struct arg_int *operating_bw;
     struct arg_int *chan_freq;
     struct arg_int *prim_ch_opclass;
+    struct arg_int *s1g_capab;
 } args;
 
 int ecsa_info_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Set frequency parameters for ECSA IE in probe responses and beacons",
+    MM_INIT_ARGTABLE(mm_args, "Set channel parameters for ECSA IE in probe responses and beacons",
+        arg_rem(NULL, "Do not use - for internal use by hostapd_s1g"),
         args.chan_freq = arg_rint1("c", NULL, NULL, MIN_FREQ_KHZ, MAX_FREQ_KHZ,
             "Operating channel frequency in kHz"),
         args.operating_bw = arg_int1("o", NULL, NULL, "Operating channel bandwidth in MHz"),
@@ -58,7 +76,9 @@ int ecsa_info_init(struct morsectrl *mors, struct mm_argtable *mm_args)
         args.prim_1mhz_idx = arg_int1("n", NULL, NULL, "Primary 1MHz channel index"),
         args.global_opclass = arg_int1("g", NULL, NULL, "Global operating class"),
         args.prim_ch_opclass = arg_int1("l", NULL, NULL,
-            "Global operating class for primary channel"));
+            "Global operating class for primary channel"),
+        args.s1g_capab = arg_rint0("s", NULL, NULL, 0, S1G_CAP0_SGI_ALL,
+            "S1G SGI capabilities"));
     return 0;
 }
 
@@ -71,6 +91,7 @@ int ecsa_info(struct morsectrl *mors, int argc, char *argv[])
     uint8_t global_operating_class = OPCLASS_DEFAULT;
     uint8_t primary_1Mhz_chan_idx = PRIMARY_1MHZ_CHANNEL_INDEX_DEFAULT;
     uint8_t prim_chan_global_op_class = OPCLASS_DEFAULT;
+    uint32_t s1g_capab = 0;
     struct set_ecsa_command *cmd;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
@@ -92,6 +113,9 @@ int ecsa_info(struct morsectrl *mors, int argc, char *argv[])
 
     prim_chan_global_op_class = args.prim_ch_opclass->ival[0];
 
+    if (args.s1g_capab->count)
+        s1g_capab = args.s1g_capab->ival[0];
+
     cmd->primary_channel_bw_mhz = primary_channel_bandwidth;
     cmd->opclass = global_operating_class;
     cmd->prim_1mhz_ch_idx = primary_1Mhz_chan_idx;
@@ -99,15 +123,16 @@ int ecsa_info(struct morsectrl *mors, int argc, char *argv[])
     cmd->operating_channel_bw_mhz = op_channel_bandwidth;
     cmd->prim_opclass = prim_chan_global_op_class;
 
+    s1g_capab = htole32(s1g_capab);
+    cmd->s1g_cap0 = s1g_capab & 0xFF;
+    cmd->s1g_cap1 = (s1g_capab >> 8) & 0xFF;
+    cmd->s1g_cap2 = (s1g_capab >> 16) & 0xFF;
+    cmd->s1g_cap3 = (s1g_capab >> 24) & 0xFF;
+
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_ECSA_S1G_INFO,
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set ecsa info\n");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

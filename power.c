@@ -65,11 +65,6 @@ int power(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_FORCE_POWER_MODE,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to force chip into power mode (ret:%d)\n", ret);
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

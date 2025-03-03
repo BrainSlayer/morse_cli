@@ -68,11 +68,6 @@ int maxampdulen(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_TEST_COMMAND_SET_MAX_AMPDU_LENGTH,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set max ampdu length: %d\n", ret);
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

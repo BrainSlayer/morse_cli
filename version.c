@@ -25,7 +25,7 @@ struct PACKED get_version_response
 
 int version_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Read the software versions");
+    MM_INIT_ARGTABLE(mm_args, "Get software versions");
     return 0;
 }
 
@@ -48,11 +48,7 @@ int version(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_VERSION,
                                  cmd_tbuff, rsp_tbuff);
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Get firmware version failed (%d)\n", ret);
-    }
-    else
+    if (ret >= 0)
     {
         len = le32toh(version->length);
         version->version[len] = '\0';

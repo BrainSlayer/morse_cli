@@ -16,6 +16,7 @@
 #include "command.h"
 #ifndef MORSE_WIN_BUILD
 #include "gpioctrl.h"
+#include "usb.h"
 #endif
 
 #define MM610X_CPU_SOFT_RESET_ADDR      (0x10054094)
@@ -40,6 +41,7 @@ static struct
 {
     struct arg_lit *softreset;
     struct arg_int *gpio;
+    struct arg_lit *usbreset;
 } args;
 
 int morsectrl_reset(struct morsectrl_transport *transport, int reset_gpio)
@@ -73,9 +75,9 @@ int morsectrl_reset(struct morsectrl_transport *transport, int reset_gpio)
     }
     sleep_ms(RESET_TIME_MS);
 
+exit:
     /* Reverses the exporting gpio */
     ret = gpio_unexport(reset_gpio);
-exit:
 #endif
 
     return ret;
@@ -177,6 +179,7 @@ static int soft_reset(struct morsectrl *mors)
 int reset_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     args.softreset = arg_lit0("s", "softreset", "do a soft reset"),
+    args.usbreset = arg_lit0("u", "usbreset", "do a usb ndr reset"),
     args.gpio = arg_int0(NULL, NULL, "gpio", "RPi GPIO number");
 
     /* Only use GPIO-based reset if transport does not include reset and this is not a
@@ -184,14 +187,16 @@ int reset_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 #ifndef MORSE_WIN_BUILD
     if (!morsectrl_transport_has_reset(mors->transport))
     {
-        MM_INIT_ARGTABLE(mm_args, "Send reset signal over RPi GPIO pin", args.softreset, args.gpio
-        ); /* NOLINT (whitespace/parens) */
+        MM_INIT_ARGTABLE(mm_args, "Send reset signal over RPi GPIO pin",
+            args.softreset, args.gpio, args.usbreset);
     }
     else
     {
-        MM_INIT_ARGTABLE(mm_args, "Send reset signal over libmpsse GPIO pin", args.softreset
-        ); /* NOLINT (whitespace/parens) */
+        MM_INIT_ARGTABLE(mm_args, "Send reset signal over libmpsse GPIO pin",
+            args.softreset, args.usbreset);
     }
+#else
+    MM_INIT_ARGTABLE(mm_args, "Send soft reset signal", args.softreset);
 #endif
 
     return 0;
@@ -204,6 +209,14 @@ int reset(struct morsectrl *mors, int argc, char *argv[])
     bool do_soft_reset = (args.softreset->count > 0);
 
 #ifndef MORSE_WIN_BUILD
+    bool do_usb_reset = (args.usbreset->count > 0);
+
+    if (do_usb_reset)
+    {
+        ret = usb_ndr_reset();
+
+        goto exit;
+    }
 #endif
 
     if (do_soft_reset)
@@ -245,11 +258,6 @@ int reset(struct morsectrl *mors, int argc, char *argv[])
 
 
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to reset chip\n");
-    }
-
     return ret;
 }
 

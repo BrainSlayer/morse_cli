@@ -23,7 +23,7 @@ struct
 int long_sleep_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args, "Configure long sleep mode (allow sleeping through DTIM)",
-        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
+        args.enable = arg_rex1(NULL, NULL, MM_ARGTABLE_ENABLE_REGEX, MM_ARGTABLE_ENABLE_DATATYPE, 0,
             "Enable/disable long sleep mode"));
     return 0;
 }
@@ -52,16 +52,6 @@ int long_sleep(struct morsectrl *mors, int argc, char *argv[])
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set long sleep mode\n");
-    }
-    else
-    {
-        mctrl_print("\tLong Sleep Mode: %s\n",
-            (cmd->long_sleep_enabled) ? "enabled" : "disabled");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

@@ -64,11 +64,6 @@ int opclass(struct morsectrl *mors, int argc, char *argv[])
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set opclass\n");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

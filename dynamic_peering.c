@@ -38,8 +38,8 @@ static struct {
 
 int dynamic_peering_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Confiure Mesh Dynamic Peering",
-        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
+    MM_INIT_ARGTABLE(mm_args, "Configure Mesh Dynamic Peering",
+        args.enable = arg_rex1(NULL, NULL, MM_ARGTABLE_ENABLE_REGEX, MM_ARGTABLE_ENABLE_DATATYPE, 0,
             "Enable/disable Mesh Dynamic Peering"),
         args.note = arg_rem(NULL, "Do not use - for internal use by wpa_supplicant"),
         args.rssi_margin = arg_int0("r", NULL, "<RSSI margin>",

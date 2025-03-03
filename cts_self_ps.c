@@ -28,7 +28,7 @@ static struct
 int cts_self_ps_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args, "Enable CTS-to-self PS beacon mode",
-        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", NULL, 0,
+        args.enable = arg_rex1(NULL, NULL, MM_ARGTABLE_ENABLE_REGEX, MM_ARGTABLE_ENABLE_DATATYPE, 0,
             "Enable/disable CTS-to-self PS beacon mode"));
     return 0;
 }
@@ -55,16 +55,6 @@ int cts_self_ps(struct morsectrl *mors, int argc, char *argv[])
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set CTS-to-self PS\n");
-    }
-    else
-    {
-        mctrl_print("\tCTS-to-Self PowerSave: %s\n",
-            (cmd->enable) ? "enabled" : "disabled");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

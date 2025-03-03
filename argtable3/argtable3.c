@@ -3981,7 +3981,7 @@ struct arg_lit* arg_litn(const char* shortopts, const char* longopts, int mincou
 struct arg_rem* arg_rem(const char* datatype, const char* glossary) {
     struct arg_rem* result = (struct arg_rem*)xmalloc(sizeof(struct arg_rem));
 
-    result->hdr.flag = 0;
+    result->hdr.flag = ARG_REM;
     result->hdr.shortopts = NULL;
     result->hdr.longopts = NULL;
     result->hdr.datatype = datatype;
@@ -6210,6 +6210,10 @@ static void arg_print_gnuswitch_ds(arg_dstr_t ds, struct arg_hdr** table) {
         if (table[tabindex]->flag & ARG_HASVALUE)
             continue;
 
+        /* skip -h flag */
+        if (table[tabindex]->shortopts[0] == 'h')
+            continue;
+
         /* print first short option */
         arg_dstr_catf(ds, format2, table[tabindex]->shortopts[0]);
         format2 = "%c";
@@ -6233,6 +6237,9 @@ void arg_print_syntax_ds(arg_dstr_t ds, void** argtable, const char* suffix) {
 
         /* skip short options without arg values (they were printed by arg_print_gnu_switch) */
         if (table[tabindex]->shortopts && !(table[tabindex]->flag & ARG_HASVALUE))
+            continue;
+
+        if (table[tabindex]->flag & ARG_REM)
             continue;
 
         shortopts = table[tabindex]->shortopts;
@@ -6284,6 +6291,10 @@ void arg_print_syntax(FILE* fp, void** argtable, const char* suffix) {
 
     arg_dstr_t ds = arg_dstr_create();
     arg_print_syntax_ds(ds, argtable, suffix);
+    if (arg_dstr_cstr(ds)[0] != '\n')
+    {
+        fputs(" ", fp);
+    }
     arg_print_formatted(fp, lmargin, rmargin, arg_dstr_cstr(ds));
     arg_dstr_destroy(ds);
 }
@@ -6360,10 +6371,10 @@ void arg_print_glossary_ds(arg_dstr_t ds, void** argtable, const char* format) {
             arg_cat_optionv(syntax, sizeof(syntax) - 1, shortopts, longopts, datatype, table[tabindex]->flag & ARG_HASOPTVALUE, ", ");
             /* For long syntax lines that would cause the glossary to become unaligned.
              * Prints the glossary on the line below with the correct alignment */
-            if (strlen(syntax) >= 38)
+            if (strlen(syntax) >= 28)
             {
-                arg_dstr_catf(ds, "        %-40s\n", syntax);
-                arg_dstr_catf(ds, "        %-40s %s\n", "", glossary);
+                arg_dstr_catf(ds, "        %-30s\n", syntax);
+                arg_dstr_catf(ds, "        %-30s%s\n", "", glossary);
             }
             else
             {

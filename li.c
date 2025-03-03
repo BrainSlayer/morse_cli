@@ -28,7 +28,8 @@ static struct {
 
 int li_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Set the max listen interval (AP mode only)",
+    MM_INIT_ARGTABLE(mm_args,
+        "Set the listen interval on a STA. On an AP, set the max BSS idle period",
         args.unscaled = arg_rint1(NULL, NULL, "<unscaled interval>", 0, UNSCALED_INTERVAL_MAX,
             "Unscaled listen interval"),
         args.scale_idx = arg_rint1(NULL, NULL, "<scale index>", 0, 3,
@@ -62,11 +63,6 @@ int li(struct morsectrl *mors, int argc, char *argv[])
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to set li\n");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

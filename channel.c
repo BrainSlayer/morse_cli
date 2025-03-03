@@ -107,7 +107,7 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
     get_all_channels = (args.all_channels->count > 0);
 
 #ifndef MORSE_CLIENT
-    s1g_chan_power = (args.ignore_reg_power > 0);
+    s1g_chan_power = !(args.ignore_reg_power->count > 0);
 #endif
 
     if (set_freq)
@@ -130,7 +130,7 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
 
         if (ret < 0)
         {
-            mctrl_err("Failed to set channel: error(%d)\n", ret);
+            mctrl_err("Failed to set channel\n");
             goto exit;
         }
     }
@@ -140,7 +140,7 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
 
     if (ret < 0)
     {
-        mctrl_err("Failed to get channel frequency: error(%d)\n", ret);
+        mctrl_err("Failed to get channel frequency\n");
         goto exit;
     }
     if (json)
@@ -177,7 +177,7 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
                                      cmd_get_tbuff, rsp_get_tbuff);
         if (ret < 0)
         {
-            mctrl_err("Failed to get channel frequency: error(%d)\n", ret);
+            mctrl_err("Failed to get channel frequency\n");
             goto exit;
         }
 
@@ -195,7 +195,7 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
                                      cmd_get_tbuff, rsp_get_tbuff);
         if (ret < 0)
         {
-            mctrl_err("Failed to get channel frequency: error(%d)\n", ret);
+            mctrl_err("Failed to get channel frequency\n");
             goto exit;
         }
 

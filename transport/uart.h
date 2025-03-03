@@ -11,14 +11,13 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "../utilities.h"
 
 struct uart_ctx;
 
-#define UART_MAX_DEVICE_NAME_LEN         (256)
-
 struct uart_config
 {
-    char dev_name[UART_MAX_DEVICE_NAME_LEN];
+    char dev_name[DEVICE_NAME_LEN];
 
     int baudrate;
 };

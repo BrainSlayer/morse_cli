@@ -60,7 +60,7 @@ static struct
 int tcp_keepalive_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args, "Configure TCP keepalive offload parameters",
-        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
+        args.enable = arg_rex1(NULL, NULL, MM_ARGTABLE_ENABLE_REGEX, MM_ARGTABLE_ENABLE_DATATYPE, 0,
             "Enable/disable TCP keepalive offload"),
         args.period_s = arg_rint0("p", NULL, "<period>", 1, TCP_KEEPALIVE_PARAM_PERIOD_MAX,
             "Period in seconds (1-65535)"),
@@ -178,11 +178,6 @@ int tcp_keepalive(struct morsectrl *mors, int argc, char *argv[])
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_TCP_KEEPALIVE,
                                  cmd_tbuff, rsp_tbuff);
-    if (ret < 0)
-    {
-        mctrl_err("TCP keepalive command failed - error(%d)\n", ret);
-        goto exit;
-    }
 
 exit:
     morsectrl_transport_buff_free(cmd_tbuff);

@@ -4,7 +4,7 @@
  */
 
 /*
- * Transport layer for communication over UART interface to an embedded device with SLIP framing.
+ * Transport layer for communication over TCP socket to an embedded device with SLIP framing.
  *
  * Transport frame format:
  *
@@ -18,7 +18,7 @@
  * * CRC16 is a CRC16 calculated over the sequence # and payload. See below for implementation
  *   details.
  *
- * The above frame is then slip encoded before transmission over the UART. On the receive
+ * The above frame is then slip encoded before transmission over the TCP socket. On the receive
  * side it is SLIP decoded before the CRC16 is validated and sequence # checked.
  */
 
@@ -27,59 +27,47 @@
 #include <string.h>
 #include <time.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
+
 #include "transport.h"
 #include "transport_private.h"
 #include "../utilities.h"
 
 #include "slip.h"
-#include "uart.h"
-
-#define DEFAULT_BAUDRATE            (115200)
 
 #define SEQNUM_LEN                  (4)
 #define CRC_LEN                     (2)
 
-static const struct morsectrl_transport_ops uart_slip_ops;
+static const struct morsectrl_transport_ops tcp_slip_ops;
+
+struct tcp_slip_data
+{
+    char hostname[256];
+    int port;
+    int socketfd;
+};
 
 /** @brief Data structure used to represent an instance of this trasport. */
-struct morsectrl_uart_slip_transport
+struct morsectrl_tcp_slip_transport
 {
     struct morsectrl_transport common;
-    struct uart_config uart_config;
-    struct uart_ctx *uart_ctx;
+    struct tcp_slip_data tcp_slip;
 };
 
 /**
  * @brief Given a pointer to a @ref morsectrl_transport instance, return a reference to the
- *        uart_config field.
+ *        tcp_slip field.
  */
-static struct uart_config *uart_slip_cfg(struct morsectrl_transport *transport)
+static struct tcp_slip_data *tcp_slip_get_data(struct morsectrl_transport *transport)
 {
-    struct morsectrl_uart_slip_transport *uart_slip_transport =
-        (struct morsectrl_uart_slip_transport *)transport;
-    return &uart_slip_transport->uart_config;
+    struct morsectrl_tcp_slip_transport *tcp_slip_transport =
+        (struct morsectrl_tcp_slip_transport *)transport;
+    return &tcp_slip_transport->tcp_slip;
 }
 
-/**
- * @brief Given a pointer to a @ref morsectrl_transport instance, set the uart_ctx field.
- */
-static void uart_slip_ctx_set(struct morsectrl_transport *transport, struct uart_ctx *ctx)
-{
-    struct morsectrl_uart_slip_transport *uart_slip_transport =
-        (struct morsectrl_uart_slip_transport *)transport;
-    uart_slip_transport->uart_ctx = ctx;
-}
-
-/**
- * @brief Given a pointer to a @ref morsectrl_transport instance, return a reference to the
- *        uart_ctx field.
- */
-static struct uart_ctx *uart_slip_ctx(struct morsectrl_transport *transport)
-{
-    struct morsectrl_uart_slip_transport *uart_slip_transport =
-        (struct morsectrl_uart_slip_transport *)transport;
-    return uart_slip_transport->uart_ctx;
-}
 
 /**
  * @brief Prints an error message if possible.
@@ -88,73 +76,139 @@ static struct uart_ctx *uart_slip_ctx(struct morsectrl_transport *transport)
  * @param error_code    Error code.
  * @param error_msg     Error message.
  */
-static void uart_slip_error(int error_code, char *error_msg)
+static void tcp_slip_error(int error_code, char *error_msg)
 {
-    morsectrl_transport_err("UART_SLIP", error_code, error_msg);
+    morsectrl_transport_err("TCP_SLIP", error_code, error_msg);
 }
 
 /**
- * @brief Parse the configuration for the SLIP over UART interface.
+ * @brief Parse the configuration for the SLIP over TCP socket.
  *
  * @param transport     The transport structure.
  * @param debug         Indicates whether debug print statements are enabled.
  * @param iface_opts    String containing the interface to use. May be NULL.
- * @param cfg_opts      Comma separated string with SLIP over UART configuration options.
+ * @param cfg_opts      Comma separated string with SLIP over TCP configuration options.
  * @return              0 on success otherwise relevant error.
  */
-static int uart_slip_parse(struct morsectrl_transport **transport,
+static int tcp_slip_parse(struct morsectrl_transport **transport,
                            bool debug,
                            const char *iface_opts,
                            const char *cfg_opts)
 {
-    struct uart_config *config;
+    struct tcp_slip_data *tcp_slip_data;
+    const char *hostname_end;
+    size_t hostname_len;
 
-    struct morsectrl_uart_slip_transport *uart_slip_transport =
-        calloc(1, sizeof(*uart_slip_transport));
-    if (!uart_slip_transport)
+    struct morsectrl_tcp_slip_transport *tcp_slip_transport =
+        calloc(1, sizeof(*tcp_slip_transport));
+    if (!tcp_slip_transport)
     {
         mctrl_err("Transport memory allocation failure\n");
         return -ETRANSNOMEM;
     }
 
-    uart_slip_transport->common.debug = debug;
-    uart_slip_transport->common.tops = &uart_slip_ops;
-    *transport = &uart_slip_transport->common;
-    config = uart_slip_cfg(*transport);
+    tcp_slip_transport->common.debug = debug;
+    tcp_slip_transport->common.tops = &tcp_slip_ops;
+    *transport = &tcp_slip_transport->common;
 
     if (cfg_opts == NULL || strlen(cfg_opts) == 0)
     {
-        mctrl_err("Must specify the path to the UART file. For example: -c /dev/ttyACM0\n");
+        goto config_syntax_error;
+    }
+
+    tcp_slip_data = tcp_slip_get_data(*transport);
+    hostname_end = strchr(cfg_opts, ':');
+    if (hostname_end == NULL)
+    {
+        goto config_syntax_error;
+    }
+
+    hostname_len = hostname_end - cfg_opts;
+    if (hostname_len > sizeof(tcp_slip_data->hostname) - 1)
+    {
+        mctrl_err("Hostname too long (max supported %u chars)\n",
+                  sizeof(tcp_slip_data->hostname) - 1);
         return -ETRANSNOMEM;
     }
 
-    strncpy(config->dev_name, cfg_opts, sizeof(config->dev_name) - 1);
-    config->baudrate = DEFAULT_BAUDRATE;
+    memcpy(tcp_slip_data->hostname, cfg_opts, hostname_len);
+    tcp_slip_data->hostname[hostname_len] = '\0';
+    tcp_slip_data->port = atoi(hostname_end + 1);
+
+    if (tcp_slip_data->port == 0)
+    {
+        goto config_syntax_error;
+    }
 
     return 0;
+
+config_syntax_error:
+    mctrl_err("Must specify the TCP socket to connect to: -c <hostname>:<port>\n");
+    return -ETRANSNOMEM;
 }
 
 
 /**
- * @brief Initalise an SLIP over UART interface.
+ * @brief Initalise an SLIP over TCP socket.
  *
  * @note This should be done after parsing the configuration.
  *
  * @param transport Transport structure.
  * @return          0 on success otherwise relevant error.
  */
-static int uart_slip_init(struct morsectrl_transport *transport)
+static int tcp_slip_init(struct morsectrl_transport *transport)
 {
-    struct uart_ctx *ctx;
-    struct uart_config *config = uart_slip_cfg(transport);
-
+    struct tcp_slip_data *tcp_slip_data = tcp_slip_get_data(transport);
+    int ret;
+    struct addrinfo hints = {
+        .ai_family = AF_UNSPEC,
+        .ai_socktype = SOCK_STREAM,
+    };
+    char port_buf[8];
+    struct addrinfo *addrinfo;
+    struct addrinfo *addrinfo_iter;
 
     srand(time(NULL));
 
-    ctx = uart_init(config);
-    if (ctx == NULL)
-        return ETRANSERR;
-    uart_slip_ctx_set(transport, ctx);
+    snprintf(port_buf, sizeof(port_buf), "%d", tcp_slip_data->port);
+    ret = getaddrinfo(tcp_slip_data->hostname, port_buf, &hints, &addrinfo);
+    if (ret != 0)
+    {
+        mctrl_err("Failed to resolve (%s:%s)\n", tcp_slip_data->hostname, port_buf);
+        return -ETRANSERR;
+    }
+
+    for (addrinfo_iter = addrinfo; addrinfo_iter != NULL; addrinfo_iter = addrinfo_iter->ai_next)
+    {
+        int sockfd;
+
+        ret = socket(addrinfo_iter->ai_family, addrinfo_iter->ai_socktype,
+                     addrinfo_iter->ai_protocol);
+        if (ret < 0)
+        {
+            continue;
+        }
+
+        sockfd = ret;
+
+        ret = connect(sockfd, addrinfo_iter->ai_addr, addrinfo_iter->ai_addrlen);
+        if (ret == 0)
+        {
+            /* Success */
+            tcp_slip_data->socketfd = sockfd;
+            break;
+        }
+
+        close(sockfd);
+    }
+
+    freeaddrinfo(addrinfo);
+
+    if (ret != 0)
+    {
+        mctrl_err("Failed to connect to %s:%s\n", tcp_slip_data->hostname, port_buf);
+        return -ETRANSERR;
+    }
 
     return ETRANSSUCC;
 }
@@ -165,13 +219,16 @@ static int uart_slip_init(struct morsectrl_transport *transport)
  * @param transport The transport structure.
  * @return          0 on success otherwise relevant error.
  */
-static int uart_slip_deinit(struct morsectrl_transport *transport)
+static int tcp_slip_deinit(struct morsectrl_transport *transport)
 {
-    struct uart_ctx *ctx = uart_slip_ctx(transport);
+    struct tcp_slip_data *tcp_slip_data = tcp_slip_get_data(transport);
 
-    uart_slip_ctx_set(transport, NULL);
+    if (tcp_slip_data->socketfd > 0)
+    {
+        close(tcp_slip_data->socketfd);
+    }
 
-    return uart_deinit(ctx);
+    return 0;
 }
 
 
@@ -182,7 +239,7 @@ static int uart_slip_deinit(struct morsectrl_transport *transport)
  * @param size      Size of command and morse headers or raw data.
  * @return          Allocated @ref morsectrl_transport_buff or NULL on failure.
  */
-static struct morsectrl_transport_buff *uart_slip_alloc(struct morsectrl_transport *transport,
+static struct morsectrl_transport_buff *tcp_slip_alloc(struct morsectrl_transport *transport,
                                                         size_t size)
 {
     struct morsectrl_transport_buff *buff;
@@ -210,14 +267,13 @@ static struct morsectrl_transport_buff *uart_slip_alloc(struct morsectrl_transpo
     return buff;
 }
 
-static int uart_slip_tx_char(uint8_t c, void *arg)
+static int tcp_slip_tx_char(uint8_t c, void *arg)
 {
     int ret;
     struct morsectrl_transport *transport = arg;
-    struct uart_ctx *ctx = uart_slip_ctx(transport);
+    struct tcp_slip_data *tcp_slip_data = tcp_slip_get_data(transport);
 
-
-    ret = uart_write(ctx, &c, 1);
+    ret = write(tcp_slip_data->socketfd, &c, 1);
     if (ret == 1)
     {
         return 0;
@@ -228,11 +284,11 @@ static int uart_slip_tx_char(uint8_t c, void *arg)
     }
 }
 
-static int uart_slip_send(struct morsectrl_transport *transport,
+static int tcp_slip_send(struct morsectrl_transport *transport,
                          struct morsectrl_transport_buff *cmd,
                          struct morsectrl_transport_buff *resp)
 {
-    struct uart_ctx *ctx;
+    struct tcp_slip_data *tcp_slip_data;
     int ret = -ETRANSERR;
     int i;
     uint8_t *cmd_seq_num_field;
@@ -247,6 +303,8 @@ static int uart_slip_send(struct morsectrl_transport *transport,
     {
         return -ETRANSERR;
     }
+
+    tcp_slip_data = tcp_slip_get_data(transport);
 
     /* We need to restore the data_len field before the function returns, so we stash the
      * value here. */
@@ -273,18 +331,16 @@ static int uart_slip_send(struct morsectrl_transport *transport,
     crc_field[1] = (crc >> 8) & 0x0ff;
 
     /* Slip encode and transmit the packet */
-    ret = slip_tx(uart_slip_tx_char, transport, cmd->data, cmd->data_len);
+    ret = slip_tx(tcp_slip_tx_char, transport, cmd->data, cmd->data_len);
     cmd->data_len = original_cmd_data_len;
 
     if (ret != 0)
     {
-        uart_slip_error(ret, "Failed to send command");
+        tcp_slip_error(ret, "Failed to send command");
         goto fail;
     }
 
     resp->data_len = 0;
-
-    ctx = uart_slip_ctx(transport);
 
     while (true)
     {
@@ -292,10 +348,10 @@ static int uart_slip_send(struct morsectrl_transport *transport,
         do
         {
             uint8_t rx_char;
-            ret = uart_read(ctx, &rx_char, 1);
+            ret = read(tcp_slip_data->socketfd, &rx_char, 1);
             if (ret < 0)
             {
-                uart_slip_error(ret, "Failed to rx command");
+                tcp_slip_error(ret, "Failed to rx command");
                 goto fail;
             }
             else if (ret == 0)
@@ -310,9 +366,9 @@ static int uart_slip_send(struct morsectrl_transport *transport,
         {
             if (slip_rx_status == SLIP_RX_BUFFER_LIMIT)
             {
-                uart_slip_error(-ETRANSERR, "Response exceeded allocated buffer");
+                tcp_slip_error(-ETRANSERR, "Response exceeded allocated buffer");
             }
-            uart_slip_error(-ETRANSERR, "Slip RX transfer incomplete");
+            tcp_slip_error(-ETRANSERR, "Slip RX transfer incomplete");
             ret = -ETRANSERR;
             goto fail;
         }
@@ -322,7 +378,7 @@ static int uart_slip_send(struct morsectrl_transport *transport,
         {
             if (resp->data_len > 0)
             {
-                uart_slip_error(-ETRANSERR, "Received frame too short. Ignoring it...");
+                tcp_slip_error(-ETRANSERR, "Received frame too short. Ignoring it...");
             }
             continue;
         }
@@ -333,7 +389,7 @@ static int uart_slip_send(struct morsectrl_transport *transport,
         crc_field = resp->data + resp->data_len;
         if ((crc_field[0] != (crc & 0xff)) || crc_field[1] != ((crc >> 8) & 0xff))
         {
-            uart_slip_error(-ETRANSERR, "CRC error for received frame. Ignoring it...");
+            tcp_slip_error(-ETRANSERR, "CRC error for received frame. Ignoring it...");
             continue;
         }
 
@@ -343,7 +399,7 @@ static int uart_slip_send(struct morsectrl_transport *transport,
 
         if (memcmp(cmd_seq_num_field, rsp_seq_num_field, SEQNUM_LEN) != 0)
         {
-            uart_slip_error(-ETRANSERR, "Seq # incorrect for received frame. Ignoring it...");
+            tcp_slip_error(-ETRANSERR, "Seq # incorrect for received frame. Ignoring it...");
             continue;
         }
 
@@ -353,17 +409,17 @@ fail:
     return ret;
 }
 
-static const struct morsectrl_transport_ops uart_slip_ops = {
-    .name = "uart_slip",
-    .description = "Tunnel commands over a UART interface using SLIP framing",
+static const struct morsectrl_transport_ops tcp_slip_ops = {
+    .name = "tcp_slip",
+    .description = "Tunnel commands over a TCP stream using SLIP framing",
     .has_reset = false,
     .has_driver = false,
-    .parse = uart_slip_parse,
-    .init = uart_slip_init,
-    .deinit = uart_slip_deinit,
-    .write_alloc = uart_slip_alloc,
-    .read_alloc = uart_slip_alloc,
-    .send = uart_slip_send,
+    .parse = tcp_slip_parse,
+    .init = tcp_slip_init,
+    .deinit = tcp_slip_deinit,
+    .write_alloc = tcp_slip_alloc,
+    .read_alloc = tcp_slip_alloc,
+    .send = tcp_slip_send,
     .reg_read = NULL,
     .reg_write = NULL,
     .mem_read = NULL,
@@ -375,4 +431,4 @@ static const struct morsectrl_transport_ops uart_slip_ops = {
     .get_ifname = NULL,
 };
 
-REGISTER_TRANSPORT(uart_slip_ops);
+REGISTER_TRANSPORT(tcp_slip_ops);

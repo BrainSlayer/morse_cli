@@ -349,16 +349,6 @@ done:
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to set RAW config\n");
-    }
-    else
-    {
-        mctrl_print("RAW config sent for ID:%u (%s)\n", cmd->id,
-            cmd->flags & RAW_CMD_FLAG_ENABLE ? "enable" : "disable");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

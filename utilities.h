@@ -7,6 +7,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -28,6 +29,8 @@
 #define MIN(a, b) ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a < _b ? _a : _b; })
 
 #define BIT(N) (1UL << (N))
+
+#define DEVICE_NAME_LEN         (256)
 
 #define MAC_ADDR_LEN    (6)
 #define MACSTR          "%02x:%02x:%02x:%02x:%02x:%02x"
@@ -305,7 +308,8 @@ char *strip(char *s);
 uint8_t crc7_gen(uint64_t number, uint8_t bit_count);
 
 /**
- * @brief Simple inefficient calculation of CRC16
+ * @brief Simple inefficient calculation of CRC16. This uses the xmodem crc16 model to calulate
+ *        the CRC.
  *
  * @param buff  Buffer of octets to run CRC16 on
  * @param len   Number of octets to run CRC16 on
@@ -314,7 +318,8 @@ uint8_t crc7_gen(uint64_t number, uint8_t bit_count);
 uint16_t crc16_gen(uint8_t *buff, size_t len);
 
 /**
- * @brief Calculate the CRC16 of a buffer and compare against a reference value.
+ * @brief Calculate the CRC16 of a buffer and compare against a reference value. This uses the
+ *        xmodem crc16 model to calulate the CRC.
  *
  * @param buff  Buffer to perform the CRC16 check on.
  * @param len   Length of the buffer.

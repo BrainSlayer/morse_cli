@@ -55,11 +55,6 @@ int tx_pkt_lifetime_us(struct morsectrl *mors, int argc, char *argv[])
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to set tx pkt lifetime\n");
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

@@ -49,7 +49,7 @@ static struct
 int uapsd_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args, "U-APSD auto trigger frame control",
-        args.enable = arg_rex1("a", NULL, "(enable|disable|1|0)", "{enable|disable|1|0}", 0,
+        args.enable = arg_rex1("a", NULL, MM_ARGTABLE_ENABLE_REGEX, MM_ARGTABLE_ENABLE_DATATYPE, 0,
             "Enable/disable auto trigger frame"),
         args.timeout = arg_rint0("t", "timeout", "<duration>",
             AUTO_TRIGGER_TIMEOUT_MIN, AUTO_TRIGGER_TIMEOUT_MAX,
@@ -103,11 +103,6 @@ int uapsd(struct morsectrl *mors, int argc, char *argv[])
                                  cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret)
-    {
-        mctrl_err("Failed to set U-APSD config with error %d\n", ret);
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;

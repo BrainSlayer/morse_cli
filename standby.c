@@ -125,6 +125,10 @@ typedef enum
     STANDBY_MODE_EXIT_REASON_WHITELIST_PKT,
     /** TCP connection lost */
     STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST,
+    /** HW scan is not enabled */
+    STANDBY_MODE_EXIT_REASON_HW_SCAN_NOT_ENABLED,
+    /** HW scan failed to start */
+    STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START,
 } standby_mode_exit_reason_t;
 
 
@@ -652,7 +656,7 @@ static int process_standby_enter(struct morsectrl *mors,
                                  cmd_tbuff, rsp_tbuff);
     if (ret < 0)
     {
-        mctrl_err("failed to set channel info %d\n", ret);
+        mctrl_err("Failed to set channel info\n");
         goto exit;
     }
 
@@ -769,11 +773,6 @@ static int send_wake_filter_cmd(struct morsectrl *mors,
         cmd_tbuff, rsp_tbuff);
 
 exit:
-    if (ret < 0)
-    {
-        mctrl_err("Failed to send standby command %d\n", ret);
-    }
-
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
@@ -878,6 +877,10 @@ static const char *standby_exit_reason_to_str(int reason)
         return "whitelisted packet received";
     case STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST:
         return "TCP connection lost";
+    case STANDBY_MODE_EXIT_REASON_HW_SCAN_NOT_ENABLED:
+        return "HW scan not enabled";
+    case STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START:
+        return "HW scan failed to start";
     default:
         return "unknown";
     }
@@ -991,11 +994,6 @@ exit:
     if (mm_check_help_argtable(subcmds, MORSE_ARRAY_SIZE(subcmds)))
     {
         ret = 0;
-    }
-
-    if (ret < 0)
-    {
-        mctrl_err("Failed to send standby command %d\n", ret);
     }
 
     for (i = 0; i < MORSE_ARRAY_SIZE(subcmds); i++)

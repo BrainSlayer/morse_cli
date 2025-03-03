@@ -60,11 +60,6 @@ int keepalive(struct morsectrl *mors, int argc, char *argv[])
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_KEEP_ALIVE_OFFLOAD,
         cmd_tbuff, rsp_tbuff);
 
-    if (ret)
-    {
-        mctrl_err("Failed to send keepalive offload command\n");
-    }
-
 exit:
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);

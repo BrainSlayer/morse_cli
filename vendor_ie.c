@@ -198,13 +198,6 @@ int vendor_ie(struct morsectrl *mors, int argc, char *argv[])
                                  MORSE_COMMAND_VENDOR_IE_CONFIG,
                                  cmd_tbuff,
                                  rsp_tbuff);
-
-    if (ret < 0)
-    {
-        mctrl_err("Command error (%d)\n", ret);
-        goto exit;
-    }
-
 exit:
     morsectrl_transport_buff_free(cmd_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);

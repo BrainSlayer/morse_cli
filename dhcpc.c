@@ -116,7 +116,7 @@ int dhcpc_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args, "Configure DHCP client offload",
         args.option = arg_rex1(NULL, NULL, "(enable|discover|get|clear|renew|rebind|update)",
-            NULL, 0, NULL),
+             "{enable|discover|get|clear|renew|rebind|update}", 0, NULL),
         args.enable = arg_rem("enable", "Enable DHCP client"),
         args.discover = arg_rem("discover", "Do a discovery and obtain a lease"),
         args.get = arg_rem("get", "Get the current lease"),
@@ -193,7 +193,6 @@ int dhcpc(struct morsectrl *mors, int argc, char *argv[])
 
     if (ret < 0)
     {
-        mctrl_err("Command error (%d)\n", ret);
         goto exit;
     }
     else if (rsp_dhcp->retcode != MORSE_DHCP_RET_SUCCESS)

@@ -242,6 +242,17 @@ static void print_mac_state(const char *key, const uint8_t *buf, uint32_t len)
                        BMGET(mac_state, ENCODE_MAC_STATE_N_PKTS_IN_QUEUES), 1);
 }
 
+static void print_umac_latency_histogram(const char *key, const uint8_t *buf, uint32_t len)
+{
+    umac_latency_histogram_t *histogram = (umac_latency_histogram_t *)buf;
+
+    stats_print_label(key, 0);
+    for (size_t i = 0; i < MORSE_ARRAY_SIZE(histogram->buckets); i++)
+    {
+        mctrl_print(" %u", histogram->buckets[i]);
+    }
+    mctrl_print("\n");
+}
 
 static void print_array(const char *key, const uint8_t *buf, uint32_t len)
 {
@@ -288,6 +299,7 @@ static const struct format_table table = {
         [MORSE_STATS_FMT_CALIBRATION] = print_calibration,
         [MORSE_STATS_FMT_DUTY_CYCLE] = print_duty_cycle,
         [MORSE_STATS_FMT_MAC_STATE] = print_mac_state,
+        [MORSE_STATS_FMT_UMAC_LATENCY_HISTOGRAM] = print_umac_latency_histogram,
         /* Add new function pointers here */
         /* [MORSE_STATS_NEW_TLV_FORMAT] = print_new_format */
         [MORSE_STATS_FMT_ARRAY] = print_array,

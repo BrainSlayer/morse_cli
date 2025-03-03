@@ -144,7 +144,7 @@ void morsectrl_transport_list_available(void)
 {
     const struct morsectrl_transport_ops * const *iter;
 
-    mctrl_print("\nTransports Available:\n");
+    mctrl_print("\nTransports Available ({-t|--transport}=<transport>):\n");
 
     /*
      * Important note

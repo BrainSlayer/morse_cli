@@ -39,6 +39,9 @@ enum morse_param_id
     MORSE_PARAM_ID_INPUT_TRIGGER_GPIO               = 11,
     MORSE_PARAM_ID_INPUT_TRIGGER_MODE               = 12,
     MORSE_PARAM_ID_HOST_TX_BLOCK                    = 15,
+    MORSE_PARAM_ID_MEM_RETENTION_CODE               = 16,
+    MORSE_PARAM_ID_NON_TIM_MODE                     = 17,
+    MORSE_PARAM_ID_DYNAMIC_PS_TIMEOUT_MS            = 18,
 
     MORSE_PARAM_ID_LAST,
     MORSE_PARAM_ID_MAX = UINT32_MAX,
@@ -249,6 +252,24 @@ struct param_entry params[] = {
         .set_fn = param_set_int32,
         .get_fn = param_get_int32,
     },
+    {
+        .id = MORSE_PARAM_ID_NON_TIM_MODE,
+        .name = "non_tim_mode",
+        .help = "Enable non-TIM mode (must be run before association)",
+        .min_val = 0,
+        .max_val = 1,
+        .set_fn = param_set_uint32,
+        .get_fn = param_get_uint32,
+    },
+    {
+        .id = MORSE_PARAM_ID_DYNAMIC_PS_TIMEOUT_MS,
+        .name = "dynamic_ps_timeout_ms",
+        .help = "Dynamic powersave timeout (in ms) after network activity",
+        .min_val = 0,
+        .max_val = UINT32_MAX,
+        .set_fn = param_set_uint32,
+        .get_fn = param_get_uint32,
+    },
 };
 
 static int get_line(const char **start, const char *end)
@@ -429,10 +450,7 @@ exit:
     }
     else
     {
-        mctrl_err("Failed to %s parameter: '%s'\n",
-            (action == MORSE_PARAM_ACTION_SET) ? "set" : "get",
-            param->name);
-        ret = MORSE_CMD_ERR;
+        ret = -MORSE_CMD_ERR;
     }
 
     morsectrl_transport_buff_free(cmd_tbuff);
