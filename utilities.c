@@ -1,19 +1,6 @@
 /*
  * Copyright 2021 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <ctype.h>
@@ -63,7 +50,7 @@ bool check_string_is_int(const char *str)
     return true;
 }
 
-int str_to_uint16(char *str, uint16_t *val)
+int str_to_uint16(const char *str, uint16_t *val)
 {
     uint32_t local;
     int ret = str_to_uint32(str, &local);
@@ -73,7 +60,7 @@ int str_to_uint16(char *str, uint16_t *val)
     return ret;
 }
 
-int str_to_int8(char *str, int8_t *val)
+int str_to_int8(const char *str, int8_t *val)
 {
     int32_t local;
     int ret = str_to_int32(str, &local);
@@ -93,7 +80,7 @@ int str_to_int8_range(const char *str, int8_t *val, const int8_t min, const int8
     return ret;
 }
 
-int str_to_uint8(char *str, uint8_t *val)
+int str_to_uint8(const char *str, uint8_t *val)
 {
     uint32_t local;
     int ret = str_to_uint32(str, &local);
@@ -123,7 +110,7 @@ int str_to_uint16_range(const char *str, uint16_t *val, const uint16_t min, cons
     return ret;
 }
 
-int str_to_int32(char *str, int32_t *val)
+int str_to_int32(const char *str, int32_t *val)
 {
     char *endptr = NULL;
     *val = strtol(str, &endptr, 0);
@@ -236,12 +223,41 @@ int hexstr2bin(const char *hex, uint8_t *buf, size_t len)
     const char *ipos = hex;
     uint8_t *opos = buf;
 
-    for (i = 0; i < len; i++) {
+    for (i = 0; i < len; i++)
+    {
         a = hex2byte(ipos);
         if (a < 0)
             return -1;
         *opos++ = a;
         ipos += 2;
+    }
+    return 0;
+}
+
+int hexstr2uint32_arr(const char *hex, uint32_t *buf, size_t len)
+{
+    size_t i, j;
+    const char *ipos = hex;
+    uint32_t *opos = buf;
+    int a = 0, tmp;
+
+    if (strlen(hex) != 8 * len)
+    {
+        return -1;
+    }
+
+    for (i = 0; i < len; i++)
+    {
+        a = 0;
+        for (j = 0; j < 4; j++)
+        {
+            tmp = hex2byte(ipos);
+            if (tmp < 0)
+                return -1;
+            a = a << 8 | tmp;
+            ipos += 2;
+        }
+        *opos++ = htole32(a);
     }
     return 0;
 }

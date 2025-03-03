@@ -1,19 +1,6 @@
 /*
  * Copyright 2020 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #pragma once
@@ -71,7 +58,7 @@ int morsectrl_config_file_parse(const char *file_opts,
                                 char **cfg_opts,
                                 bool debug);
 
-/* Our command link handlers need to be aligned to 8 byte boundaries (for up to 64-bit platforms) */
+/* Our command line handlers need to be aligned to 8 byte boundaries (for up to 64-bit platforms) */
 #define MM_CLI_HANDLER_ALIGN __attribute__((aligned(8)))
 
 struct MM_CLI_HANDLER_ALIGN command_handler
@@ -79,25 +66,34 @@ struct MM_CLI_HANDLER_ALIGN command_handler
     const char *name;
     int (*init)(struct morsectrl *, struct mm_argtable *);
     int (*handler)(struct morsectrl *, int, char **);
+    int (*help)(void);
     const enum mm_intr_requirements is_intf_cmd;
     const enum mm_direct_chip_support direct_chip_supported_cmd;
     const bool deprecated;
+    const bool custom_help;
     struct mm_argtable args;
 };
 
-#define _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, deprecated) \
+#define _MM_CLI_HANDLER(\
+    command, _is_intf_cmd, _direct_chip_supported_cmd, deprecated, custom_help) \
     __attribute__((weak)) int command##_init(struct morsectrl *mors, struct mm_argtable *mmargs); \
+    __attribute__((weak)) int command##_help(); \
     __attribute__((section("cli_handlers"))) MM_CLI_HANDLER_ALIGN \
     struct command_handler command##_cli_handler = { \
         #command, \
         command##_init, \
         command, \
+        command##_help, \
         _is_intf_cmd, \
         _direct_chip_supported_cmd, \
-        deprecated }
+        deprecated, \
+        custom_help }
 
 #define MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd) \
-     _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, false)
+     _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, false, false)
 
 #define MM_CLI_HANDLER_DEPRECATED(command, _is_intf_cmd, _direct_chip_supported_cmd) \
-    _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, true)
+    _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, true, false)
+
+#define MM_CLI_HANDLER_CUSTOM_HELP(command, _is_intf_cmd, _direct_chip_supported_cmd) \
+     _MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, false, true)

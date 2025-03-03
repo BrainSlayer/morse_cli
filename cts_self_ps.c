@@ -1,19 +1,6 @@
 /*
  * Copyright 2021 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -33,9 +20,17 @@ struct PACKED set_cts_self_ps_command
     uint8_t enable;
 };
 
+static struct
+{
+    struct arg_rex *enable;
+} args;
 
-static void usage(struct morsectrl *mors) {
-    mctrl_print("\tcts_self_ps <value>\t\t'disable' to disable and 'enable' to enable\n");
+int cts_self_ps_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Enable CTS-to-self PS beacon mode",
+        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", NULL, 0,
+            "Enable/disable CTS-to-self PS beacon mode"));
+    return 0;
 }
 
 int cts_self_ps(struct morsectrl *mors, int argc, char *argv[])
@@ -46,27 +41,7 @@ int cts_self_ps(struct morsectrl *mors, int argc, char *argv[])
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc != 2)
-    {
-        mctrl_err("Invalid Command Parameters\n");
-        usage(mors);
-        return -1;
-    }
-
-    enable = expression_to_int(argv[1]);
-
-    if (enable == -1)
-    {
-        mctrl_err("Invalid value.\n");
-        usage(mors);
-        return -1;
-    }
+    enable = expression_to_int(args.enable->sval[0]);
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);

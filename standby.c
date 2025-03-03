@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -132,11 +119,21 @@ typedef enum
     STANDBY_MODE_EXIT_REASON_WAKEUP_FRAME,
     /** The STA needs to associate */
     STANDBY_MODE_EXIT_REASON_ASSOCIATE,
-
-    /** Force to UINT8_MAX */
-    STANDBY_MODE_EXIT_REASON_MAX = UINT8_MAX,
+    /** The STA's external input pin has fired */
+    STANDBY_MODE_EXIT_REASON_EXT_INPUT,
+    /** Whitelisted packet received */
+    STANDBY_MODE_EXIT_REASON_WHITELIST_PKT,
+    /** TCP connection lost */
+    STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST,
 } standby_mode_exit_reason_t;
 
+
+struct command_standby_mode_exit {
+    /** Valid for a response to STANDBY_MODE_CMD_EXIT, see @ref standby_mode_exit_reason_t */
+    uint8_t reason;
+    /** STA state at the time of exit */
+    uint8_t sta_state;
+};
 /**
  * Response structure for MM standby mode command
  */
@@ -144,8 +141,7 @@ struct PACKED command_standby_mode_cfm
 {
     union {
         uint8_t opaque[0];
-        /** Valid for a response to STANDBY_MODE_CMD_EXIT, see @ref standby_mode_exit_reason_t */
-        uint8_t reason;
+        struct command_standby_mode_exit info;
     };
 };
 
@@ -161,7 +157,44 @@ struct standby_session_parse_context
     struct command_set_channel_req *req;
 };
 
-static int standby_get_cmd(char str[])
+static struct {
+    struct arg_rex *command;
+} args;
+
+static struct mm_argtable enter;
+static struct mm_argtable exit_cmd;
+static struct mm_argtable payload;
+static struct mm_argtable config;
+static struct mm_argtable store;
+
+static struct mm_argtable *subcmds[] =
+{
+    &enter, &exit_cmd, &payload, &config, &store
+};
+
+static struct {
+    struct arg_file *session_dir;
+} enter_args;
+
+static struct {
+    struct arg_rem *desc;
+    struct arg_lit *json_format;
+} exit_args;
+
+static struct {
+    struct arg_str *data;
+} payload_args;
+
+static struct {
+    struct arg_file *file;
+} config_args;
+
+static struct {
+    struct arg_rex *bssid;
+    struct arg_file *dir;
+} store_args;
+
+static int standby_get_cmd(const char str[])
 {
     if (strcmp("enter", str) == 0) return STANDBY_MODE_CMD_ENTER;
     else if (strcmp("exit", str) == 0) return STANDBY_MODE_CMD_EXIT;
@@ -173,27 +206,66 @@ static int standby_get_cmd(char str[])
     }
 }
 
-static void usage(struct morsectrl *mors)
+int standby_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    mctrl_print("\tstandby <command> [options]\n");
-    mctrl_print("\t\tenter [<session dir>]\n"
-                "\t\t\tPut the STA FW into standby mode.\n");
-    mctrl_print(
-           "\t\t<session dir>\tThe full directory path for storing persistent sessions,\n"
-           "\t\t\twhich should be obtained from the wpa_supplicant standby_config_dir\n"
-           "\t\t\tconfiguration parameter. This parameter is no longer required\n"
-           "\t\t\tand is retained for backwards compatibility.\n");
-    mctrl_print("\t\texit \tTell the STA FW that the external host is awake.\n");
-    mctrl_print("\t\tpayload\t<hex string of user data to append to standby status frames>\n");
-    mctrl_print("\t\tconfig\t <config file>\t Configure standby mode\n"
-            "\t\t\t <config file> Path to file containing Standby mode configuration parameters\n");
     if (mors->debug)
     {
-        mctrl_print("\t\tstore -b <bssid> -d <dir>\t"
-                   "Store session information when associated (internal use only)\n"
-               "\t\t\t-b <bssid>\t\tthe association BSSID\n"
-               "\t\t\t-d <dir>\t\tthe full directory path for storing persistent sessions\n");
+        MM_INIT_ARGTABLE(mm_args, "Control standby state and configuration",
+            args.command = arg_rex1(NULL, NULL, "(enter|exit|payload|config|store)",
+                "{enter|exit|config|payload|store}", 0, "Standby subcommand"));
     }
+    else
+    {
+        MM_INIT_ARGTABLE(mm_args, "Control standby state and configuration",
+            args.command = arg_rex1(NULL, NULL, "(enter|exit|payload|config|store)",
+                "{enter|exit|config|payload}", 0, "Standby subcommand"));
+    }
+    args.command->hdr.flag |= ARG_STOPPARSE;
+
+    MM_INIT_ARGTABLE(&enter, "Put the STA FW into standby mode",
+        enter_args.session_dir = arg_file0(NULL, NULL, "<session dir>",
+            "The full directory path for storing persistent sessions"),
+        arg_rem(NULL, "Obtained from wpa_supplicant standby_config_dir configuration parameter"),
+        arg_rem(NULL, "No longer required and is retained for backwards compatibility"));
+
+    MM_INIT_ARGTABLE(&exit_cmd, "Tell the firmware that the host is awake",
+        exit_args.desc = arg_rem(NULL, "Firmware responds with one of the following reason codes"),
+                        arg_rem(NULL, "0 - none"),
+                        arg_rem(NULL, "1 - wake-up frame received"),
+                        arg_rem(NULL, "2 - association lost"),
+                        arg_rem(NULL, "3 - external input pin fired"),
+                        arg_rem(NULL, "4 - whitelisted packet received"),
+                        arg_rem(NULL, "6 - TCP connection lost"),
+                        arg_rem(NULL, "A message is printed in the following format."),
+                        arg_rem(NULL, "Standby mode exited with reason <code> - <description>"),
+        exit_args.json_format = arg_lit0("j", "json", "Print the exit message in JSON format"));
+
+    MM_INIT_ARGTABLE(&payload, "Data to append to standby status frames",
+        payload_args.data = arg_str1(NULL, NULL, "<hex string>",
+            "Hex string of user data to append to standby status frames"));
+
+    MM_INIT_ARGTABLE(&config, "Configure standby mode",
+        config_args.file = arg_file1(NULL, NULL, "<config file>",
+            "Path to file containing standby mode configuration parameters"));
+
+    MM_INIT_ARGTABLE(&store,
+        "Store session information when associated (internal use only)",
+            store_args.bssid = arg_rex1("b", NULL, "([a-f0-9]{2}:){5}([a-f0-9]{2})",
+                "<BSSID MAC Address>", ARG_REX_ICASE, "Association BSSID"),
+            store_args.dir = arg_file1("d", NULL, "<dir>",
+                "The full directory path for storing persistent sessions"));
+
+    return 0;
+}
+
+int standby_help(void)
+{
+    mm_help_argtable("standby enter", &enter);
+    mm_help_argtable("standby exit", &exit_cmd);
+    mm_help_argtable("standby payload", &payload);
+    mm_help_argtable("standby config", &config);
+    mm_help_argtable("standby store", &store);
+    return 0;
 }
 
 static int parse_standby_config_keyval(struct morsectrl *mors, void *context, const char *key,
@@ -527,21 +599,23 @@ static int process_standby_enter(struct morsectrl *mors,
     const char *standby_session_dir = NULL;
     int ret;
     struct command_set_channel_req *ch_cmd;
-    struct morsectrl_transport_buff *cmd_tbuff;
-    struct morsectrl_transport_buff *rsp_tbuff;
+    struct morsectrl_transport_buff *cmd_tbuff = NULL;
+    struct morsectrl_transport_buff *rsp_tbuff = NULL;
 
-    if (argc < 2 || argc > 3)
+    ret = mm_parse_argtable("standby enter", &enter, argc, argv);
+    if (ret != 0)
     {
-        mctrl_err("Invalid number of arguments\n");
-        return -1;
+        goto exit;
     }
 
-    if (argc == 2)
+    if (enter_args.session_dir->count)
+    {
+        standby_session_dir = enter_args.session_dir->filename[0];
+    }
+    else
     {
         return 0;
     }
-
-    standby_session_dir = argv[2];
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*ch_cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
@@ -589,6 +663,12 @@ exit:
     return ret;
 }
 
+static int process_standby_exit(struct morsectrl *mors,
+                                    int argc, char *argv[])
+{
+    return mm_parse_argtable("standby exit", &exit_cmd, argc, argv);
+}
+
 /* Standby store commands are invoked from wpa_supplicant, so provide some context for error
  * messages.
  */
@@ -599,16 +679,20 @@ static void standby_store_print_msg(const char *msg)
 
 static int standby_store_session_cmd(struct morsectrl *mors, int argc, char *argv[])
 {
-    int option;
     uint8_t bssid[MAC_ADDR_LEN] = { 0 };
-    bool have_bssid = false;
-    char *standby_session_dir = NULL;
+    const char *standby_session_dir = NULL;
     int ret;
     const char *ifname = morsectrl_transport_get_ifname(mors->transport);
     struct command_set_channel_req *cmd;
     struct command_get_channel_cfm *rsp;
-    struct morsectrl_transport_buff *cmd_tbuff;
-    struct morsectrl_transport_buff *rsp_tbuff;
+    struct morsectrl_transport_buff *cmd_tbuff = NULL;
+    struct morsectrl_transport_buff *rsp_tbuff = NULL;
+
+    ret = mm_parse_argtable("standby store", &store, argc, argv);
+    if (ret != 0)
+    {
+        goto exit;
+    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp));
@@ -630,46 +714,14 @@ static int standby_store_session_cmd(struct morsectrl *mors, int argc, char *arg
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_set_channel_req);
     rsp = TBUFF_TO_RSP(rsp_tbuff, struct command_get_channel_cfm);
 
-    if (argc < 1)
+    if (str_to_mac_addr(bssid, store_args.bssid->sval[0]) < 0)
     {
-        standby_store_print_msg("not enough arguments to store command");
+        /* Shouldn't get here with regexp parsing above */
         ret = -1;
         goto exit;
     }
 
-    while ((option = getopt(argc, argv, "b:d:")) != -1)
-    {
-        switch (option)
-        {
-            case 'b':
-            {
-                if (str_to_mac_addr(bssid, optarg) < 0)
-                {
-                    standby_store_print_msg("invalid BSSID");
-                    ret = -1;
-                    goto exit;
-                }
-                have_bssid = true;
-                break;
-            }
-            case 'd':
-            {
-                standby_session_dir = optarg;
-                break;
-            }
-            default:
-                standby_store_print_msg("invalid argument");
-                ret = -1;
-                goto exit;
-        }
-    }
-
-    if (!have_bssid || !standby_session_dir)
-    {
-        standby_store_print_msg("BSSID or session directory not supplied");
-        ret = -1;
-        goto exit;
-    }
+    standby_session_dir = store_args.dir->filename[0];
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_FULL_CHANNEL,
                                  cmd_tbuff, rsp_tbuff);
@@ -730,12 +782,6 @@ exit:
 static int process_set_config_cmd(struct morsectrl *mors, struct command_standby_mode_req* cmd,
                                     int argc, char *argv[])
 {
-    if (argc != 3)
-    {
-        mctrl_err("Invalid number of arguments %d\n", argc);
-        return -1;
-    }
-
     struct command_standby_set_wake_filter wake_filter = {0};
     static const struct command_standby_set_config config_default = {
         .bss_inactivity_before_deep_sleep_s = 60,
@@ -747,6 +793,13 @@ static int process_set_config_cmd(struct morsectrl *mors, struct command_standby
         .deep_sleep_increment_s = 0, /* Default no increment */
         .deep_sleep_max_s = UINT32_MAX, /* Default max int / no max */
     };
+    int ret;
+
+    ret = mm_parse_argtable("standby config", &config, argc, argv);
+    if (ret != 0)
+    {
+        return ret;
+    }
 
     memcpy(&cmd->config, &config_default, sizeof(config_default));
 
@@ -755,7 +808,7 @@ static int process_set_config_cmd(struct morsectrl *mors, struct command_standby
         .set_cfg = &cmd->config
     };
 
-    if (config_parse(mors, argv[2], parse_standby_config_keyval, &context))
+    if (config_parse(mors, config_args.file->filename[0], parse_standby_config_keyval, &context))
     {
         mctrl_err("Failed to parse config file\n");
         return -1;
@@ -774,16 +827,14 @@ static int process_set_status_payload(struct command_standby_mode_req* cmd, int 
 {
     uint32_t payload_len;
 
-    if (argc != 3)
+    int ret;
+    ret = mm_parse_argtable("standby payload", &payload, argc, argv);
+    if (ret != 0)
     {
-        mctrl_err("Invalid number of arguments\n");
-        return -1;
+        return ret;
     }
 
-    argc -= 1;
-    argv += 1;
-
-    payload_len = strlen(argv[1]);
+    payload_len = strlen(payload_args.data->sval[0]);
     if ((payload_len % 2) != 0)
     {
         mctrl_err("Invalid hex string, length must be a multiple of 2\n");
@@ -801,7 +852,7 @@ static int process_set_status_payload(struct command_standby_mode_req* cmd, int 
     cmd->set_payload.len = payload_len;
     for (int i = 0; i < payload_len; i++)
     {
-        int ret = sscanf(&(argv[1][i * 2]), "%2hhx", &cmd->set_payload.payload[i]);
+        ret = sscanf(&(payload_args.data->sval[0][i * 2]), "%2hhx", &cmd->set_payload.payload[i]);
         if (ret != 1)
         {
             mctrl_err("Invalid hex string\n");
@@ -812,38 +863,40 @@ static int process_set_status_payload(struct command_standby_mode_req* cmd, int 
     return 0;
 }
 
+static const char *standby_exit_reason_to_str(int reason)
+{
+    switch (reason) {
+    case STANDBY_MODE_EXIT_REASON_NONE:
+        return "none";
+    case STANDBY_MODE_EXIT_REASON_WAKEUP_FRAME:
+        return "wake-up frame received";
+    case STANDBY_MODE_EXIT_REASON_ASSOCIATE:
+        return "association lost";
+    case STANDBY_MODE_EXIT_REASON_EXT_INPUT:
+        return "external input pin fired";
+    case STANDBY_MODE_EXIT_REASON_WHITELIST_PKT:
+        return "whitelisted packet received";
+    case STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST:
+        return "TCP connection lost";
+    default:
+        return "unknown";
+    }
+}
+
 int standby(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
+    int i = 0;
+    bool json = false;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
     struct command_standby_mode_req *cmd;
     struct command_standby_mode_cfm *rsp = NULL;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc < 2)
-    {
-        usage(mors);
-        return -1;
-    }
-
     /* Local-only command - not sent to firmware */
-    if (strcmp("store", argv[1]) == 0)
+    if (strcmp("store", args.command->sval[0]) == 0)
     {
-        return standby_store_session_cmd(mors, argc - 1, &argv[1]);
-    }
-
-    ret = standby_get_cmd(argv[1]);
-    if (ret < 0)
-    {
-        mctrl_err("Invalid standby command '%s'\n", argv[1]);
-        usage(mors);
-        return -1;
+        return standby_store_session_cmd(mors, argc, argv);
     }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
@@ -857,16 +910,15 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_standby_mode_req);
     rsp = TBUFF_TO_RSP(rsp_tbuff, struct command_standby_mode_cfm);
 
-    cmd->cmd = standby_get_cmd(argv[1]);
+    cmd->cmd = standby_get_cmd(args.command->sval[0]);
 
     switch (cmd->cmd)
     {
         case STANDBY_MODE_CMD_SET_CONFIG_V2:
         {
-            if (process_set_config_cmd(mors, cmd, argc, argv))
+            ret = process_set_config_cmd(mors, cmd, argc, argv);
+            if (ret)
             {
-                ret = -1;
-                usage(mors);
                 goto exit;
             }
 
@@ -886,10 +938,9 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
         }
         case STANDBY_MODE_CMD_SET_STATUS_PAYLOAD:
         {
-            if (process_set_status_payload(cmd, argc, argv))
+            ret = process_set_status_payload(cmd, argc, argv);
+            if (ret)
             {
-                ret = -1;
-                usage(mors);
                 goto exit;
             }
 
@@ -897,26 +948,59 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
         }
         case STANDBY_MODE_CMD_ENTER:
         {
-            if (process_standby_enter(mors, cmd, argc, argv))
+            ret = process_standby_enter(mors, cmd, argc, argv);
+            if (ret)
             {
-                ret = -1;
-                usage(mors);
                 goto exit;
             }
-            mctrl_print("Enter standby\n");
             break;
         }
         case STANDBY_MODE_CMD_EXIT:
+            ret = process_standby_exit(mors, argc, argv);
+            if (ret)
+            {
+                goto exit;
+            }
+            json = (exit_args.json_format->count > 0);
+            break;
         default:
             break;
     }
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_STANDBY_MODE,
         cmd_tbuff, rsp_tbuff);
+
+    if (cmd->cmd == STANDBY_MODE_CMD_EXIT && ret == 0)
+    {
+        if (json)
+        {
+            mctrl_print("[");
+            mctrl_print("{\"Standby mode exited with reason\": %u - %s}",
+                    rsp->info.reason, standby_exit_reason_to_str(rsp->info.reason));
+            mctrl_print("]\n");
+        }
+        else
+        {
+            mctrl_print("Standby mode exited with reason %u - %s\n", rsp->info.reason,
+                standby_exit_reason_to_str(rsp->info.reason));
+        }
+    }
+
 exit:
+    /* Check if the reason we got here is because --help was given */
+    if (mm_check_help_argtable(subcmds, MORSE_ARRAY_SIZE(subcmds)))
+    {
+        ret = 0;
+    }
+
     if (ret < 0)
     {
         mctrl_err("Failed to send standby command %d\n", ret);
+    }
+
+    for (i = 0; i < MORSE_ARRAY_SIZE(subcmds); i++)
+    {
+        mm_free_argtable(subcmds[i]);
     }
 
     morsectrl_transport_buff_free(cmd_tbuff);
@@ -924,4 +1008,4 @@ exit:
     return ret;
 }
 
-MM_CLI_HANDLER(standby, MM_INTF_REQUIRED, MM_DIRECT_CHIP_SUPPORTED);
+MM_CLI_HANDLER_CUSTOM_HELP(standby, MM_INTF_REQUIRED, MM_DIRECT_CHIP_SUPPORTED);

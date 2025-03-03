@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 #include <string.h>
 #include <stdio.h>
@@ -113,17 +100,31 @@ static void print_error(enum dhcp_offload_retcode code)
     }
 }
 
-static void usage(struct morsectrl *mors)
+static struct
 {
-    mctrl_print("\tdhcpc [enable | discover | get | clear | renew | rebind | update]\t");
-    mctrl_print("configure DHCP client\n");
-    mctrl_print("\t\tenable - enable DHCP client\n");
-    mctrl_print("\t\tdiscover - do a discovery and obtain a lease\n");
-    mctrl_print("\t\tget - get the current lease\n");
-    mctrl_print("\t\tclear - clear the current lease\n");
-    mctrl_print("\t\trenew - renew the current lease\n");
-    mctrl_print("\t\trebind - rebind the current lease\n");
-    mctrl_print("\t\tupdate - send a lease update to the driver\n");
+    struct arg_rex *option;
+    struct arg_rem *enable;
+    struct arg_rem *discover;
+    struct arg_rem *get;
+    struct arg_rem *clear;
+    struct arg_rem *renew;
+    struct arg_rem *rebind;
+    struct arg_rem *update;
+} args;
+
+int dhcpc_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Configure DHCP client offload",
+        args.option = arg_rex1(NULL, NULL, "(enable|discover|get|clear|renew|rebind|update)",
+            NULL, 0, NULL),
+        args.enable = arg_rem("enable", "Enable DHCP client"),
+        args.discover = arg_rem("discover", "Do a discovery and obtain a lease"),
+        args.get = arg_rem("get", "Get the current lease"),
+        args.clear = arg_rem("clear", "Clear the current lease"),
+        args.renew = arg_rem("renew", "Renew the current lease"),
+        args.rebind = arg_rem("rebind", "Rebind the current lease"),
+        args.update = arg_rem("update", "Send a lease update to the driver"));
+    return 0;
 }
 
 int dhcpc(struct morsectrl *mors, int argc, char *argv[])
@@ -134,19 +135,6 @@ int dhcpc(struct morsectrl *mors, int argc, char *argv[])
     struct command_dhcp_cfm *rsp_dhcp;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc != 2)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        return -1;
-    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd_dhcp));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp_dhcp));
@@ -169,40 +157,33 @@ int dhcpc(struct morsectrl *mors, int argc, char *argv[])
     /* assume vif_id 0 */
     memset(cmd_dhcp, 0, sizeof(*cmd_dhcp));
 
-    if (strcmp(argv[1], "enable") == 0)
+    if (strcmp(args.option->sval[0], "enable") == 0)
     {
         cmd_dhcp->opcode = MORSE_DHCP_CMD_ENABLE;
     }
-    else if (strcmp(argv[1], "discover") == 0)
+    else if (strcmp(args.option->sval[0], "discover") == 0)
     {
         cmd_dhcp->opcode = MORSE_DHCP_CMD_DO_DISCOVERY;
     }
-    else if (strcmp(argv[1], "get") == 0)
+    else if (strcmp(args.option->sval[0], "get") == 0)
     {
         cmd_dhcp->opcode = MORSE_DHCP_CMD_GET_LEASE;
     }
-    else if (strcmp(argv[1], "clear") == 0)
+    else if (strcmp(args.option->sval[0], "clear") == 0)
     {
         cmd_dhcp->opcode = MORSE_DHCP_CMD_CLEAR_LEASE;
     }
-    else if (strcmp(argv[1], "renew") == 0)
+    else if (strcmp(args.option->sval[0], "renew") == 0)
     {
         cmd_dhcp->opcode = MORSE_DHCP_CMD_RENEW_LEASE;
     }
-    else if (strcmp(argv[1], "rebind") == 0)
+    else if (strcmp(args.option->sval[0], "rebind") == 0)
     {
         cmd_dhcp->opcode = MORSE_DHCP_CMD_REBIND_LEASE;
     }
-    else if (strcmp(argv[1], "update") == 0)
+    else if (strcmp(args.option->sval[0], "update") == 0)
     {
         cmd_dhcp->opcode = MORSE_DHCP_CMD_SEND_LEASE_UPDATE;
-    }
-    else
-    {
-        ret = -1;
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        goto exit;
     }
 
     ret = morsectrl_send_command(mors->transport,

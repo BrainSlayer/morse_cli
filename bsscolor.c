@@ -1,19 +1,6 @@
 /*
  * Copyright 2020 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -32,9 +19,16 @@ struct PACKED set_bss_color
     uint8_t bss_color;
 };
 
-static void usage(struct morsectrl *mors)
+static struct
 {
-    mctrl_print("\tbsscolor <color>\tsets the BSS color (0-7)\n");
+    struct arg_int *bsscolor;
+} args;
+
+int bsscolor_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Set BSS color",
+        args.bsscolor = arg_rint1(NULL, NULL, "<color>", 0, 7, "BSS color (0-7)"));
+    return 0;
 }
 
 int bsscolor(struct morsectrl *mors, int argc, char *argv[])
@@ -45,12 +39,6 @@ int bsscolor(struct morsectrl *mors, int argc, char *argv[])
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(0));
 
@@ -59,21 +47,7 @@ int bsscolor(struct morsectrl *mors, int argc, char *argv[])
 
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_bss_color);
 
-    if (argc != 2)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
-
-    if (str_to_uint32_range(argv[1], &color, 0, 7) < 0)
-    {
-        mctrl_err("Setup command is not valid\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
+    color = args.bsscolor->ival[0];
 
     cmd->bss_color = htole32(color);
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_BSS_COLOR,
@@ -81,7 +55,7 @@ int bsscolor(struct morsectrl *mors, int argc, char *argv[])
 exit:
     if (ret < 0)
     {
-        mctrl_err("Failed to set bss color\n");
+        mctrl_err("Failed to set BSS color\n");
     }
 
     morsectrl_transport_buff_free(cmd_tbuff);

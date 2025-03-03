@@ -1,19 +1,6 @@
 /*
  * Copyright 2021 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -33,11 +20,15 @@ struct PACKED set_ampdu_command
     uint8_t ampdu_enabled;
 };
 
-static void usage(struct morsectrl *mors)
+static struct arg_rex *ampdu_enable_arg;
+
+int ampdu_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    mctrl_print("\tampdu [enable|disable]\n");
-    mctrl_print("\t\t\t\t'enable' will enable AMPDU sessions. Must be run before association.\n");
-    mctrl_print("\t\t\t\t'disable' will disable AMPDU sessions. Must be run before association.\n");
+    MM_INIT_ARGTABLE(mm_args, NULL,
+        ampdu_enable_arg = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
+            "Enable/disable A-MPDU sessions"),
+        arg_rem(NULL, "Must be run before association"));
+    return 0;
 }
 
 int ampdu(struct morsectrl *mors, int argc, char *argv[])
@@ -48,12 +39,6 @@ int ampdu(struct morsectrl *mors, int argc, char *argv[])
     struct morsectrl_transport_buff *rsp_tbuff;
     struct set_ampdu_command *cmd;
 
-    if (argc < 2)
-    {
-        usage(mors);
-        return 0;
-    }
-
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
@@ -63,15 +48,7 @@ int ampdu(struct morsectrl *mors, int argc, char *argv[])
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_ampdu_command);
     cmd->ampdu_enabled = 0;
 
-    enabled = expression_to_int(argv[1]);
-
-    if (enabled == -1)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
+    enabled = expression_to_int(ampdu_enable_arg->sval[0]);
 
     cmd->ampdu_enabled = enabled;
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_AMPDU,
@@ -80,11 +57,6 @@ exit:
     if (ret)
     {
         mctrl_err("Failed to set AMPDU mode\n");
-    }
-    else
-    {
-        mctrl_print("\tAMPDU Mode: %s\n",
-            (cmd->ampdu_enabled) ? "enabled" : "disabled");
     }
 
     morsectrl_transport_buff_free(cmd_tbuff);

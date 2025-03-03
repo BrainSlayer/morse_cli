@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -36,35 +23,27 @@ struct PACKED set_opclass_command
     uint8_t prim_opclass;
 };
 
-static void usage(struct morsectrl *mors)
+static struct
 {
-    mctrl_print("\topclass [s1g_operating_class] -l <s1g_prim_chan_global_op_class>\n");
-    mctrl_print("\t\t\t\tSet s1g_operating_class for S1G Operation element in\n");
-    mctrl_print("\t\t\t\tbeacon and global operating class of primary channel\n");
-    mctrl_print("\t\t\t\tfor country ie in probe response\n");
-    mctrl_print("\t\t-l <value>\tGlobal Operating class for primary channel\n");
+    struct arg_int *s1g_op_class;
+    struct arg_int *prim_chan_global;
+} args;
+
+int opclass_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Set S1G operating class for S1G operation element",
+    args.s1g_op_class = arg_int1(NULL, NULL, "<S1G opclass>", "S1G operating class"),
+    args.prim_chan_global = arg_rint0("l", NULL, NULL, GLOBAL_OP_CLASS_MIN, GLOBAL_OP_CLASS_MAX,
+        "Global operating class for primary channel"));
+    return 0;
 }
 
 int opclass(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
-    int option;
-    uint8_t tmp;
     struct set_opclass_command *cmd;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc < 2 || argc > 5)
-    {
-        usage(mors);
-        return -1;
-    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
@@ -74,39 +53,11 @@ int opclass(struct morsectrl *mors, int argc, char *argv[])
 
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_opclass_command);
 
-    if (str_to_uint8(argv[1], &tmp))
-    {
-        mctrl_err("Invalid op class\n");
-        ret = -1;
-        goto exit;
-    }
-    cmd->opclass = tmp;
+    cmd->opclass = args.s1g_op_class->ival[0];
 
-    while ((option = getopt(argc-1, argv+1, "l:")) != -1)
+    if (args.prim_chan_global->count)
     {
-        switch (option) {
-        case 'l' :
-        {
-            if (str_to_uint8_range(optarg, &tmp,
-                    GLOBAL_OP_CLASS_MIN, GLOBAL_OP_CLASS_MAX) < 0)
-            {
-                mctrl_err("Global operating class %u must be within range min %u : max %u\n",
-                                    tmp, GLOBAL_OP_CLASS_MIN, GLOBAL_OP_CLASS_MAX);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            cmd->prim_opclass = tmp;
-            break;
-        }
-        case '?' :
-            usage(mors);
-            goto exit;
-        default :
-            mctrl_err("Invalid argument\n");
-            usage(mors);
-            goto exit;
-        }
+        cmd->prim_opclass = args.prim_chan_global->ival[0];
     }
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_S1G_OP_CLASS,

@@ -1,19 +1,6 @@
 /*
  * Copyright 2020 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -67,7 +54,7 @@ static void usage(struct morsectrl *mors)
         if (handler->is_intf_cmd == MM_INTF_REQUIRED)
         {
             if (handler->direct_chip_supported_cmd ||
-                morsectrl_transport_driver_commands_supported())
+                morsectrl_transport_has_driver(mors->transport))
             {
                 if (handler->init)
                 {
@@ -90,7 +77,7 @@ static void usage(struct morsectrl *mors)
         if (handler->is_intf_cmd == MM_INTF_NOT_REQUIRED)
         {
             if (handler->direct_chip_supported_cmd ||
-                morsectrl_transport_driver_commands_supported())
+                morsectrl_transport_has_driver(mors->transport))
             {
                 if (handler->init)
                 {
@@ -146,21 +133,21 @@ int main(int argc, char *argv[])
     qsort(__start_cli_handlers, (__stop_cli_handlers - __start_cli_handlers),
           sizeof(struct command_handler), cmdname_cmp);
 
-    MM_INIT_ARGTABLE((&main_args), NULL,
-                     args.debug = arg_lit0("d", "debug", "show debug messages for given command"),
+    MM_INIT_ARGTABLE(&main_args, NULL,
+                     args.debug = arg_lit0("d", "debug", "Show debug messages for given command"),
                      args.iface = arg_str0("i", "interface", NULL,
-                                           "specify the interface for the transport "
+                                           "Specify the interface for the transport "
                                            "(default " DEFAULT_INTERFACE_NAME ")"),
                      args.file_opts = arg_str0("f", "configfile", NULL,
-                                               "specify config file with transport/interface/config"
+                                               "Specify config file with transport/interface/config"
                                                " (command line will override file contents)"),
                      args.trans_opts = arg_rex0("t", "transport", transport_regex,
                                                 transport_regex, 0,
-                                                "specify the transport to use"),
+                                                "Specify the transport to use"),
                      args.cfg_opts = arg_str0("c", "config", NULL,
-                                              "specify the config for the transport"),
-                     args.version = arg_lit0("v", NULL, "print the version"),
-                     args.command = arg_str1(NULL, NULL, "command", "sub-command to run"));
+                                              "Specify the config for the transport"),
+                     args.version = arg_lit0("v", NULL, "Print the version"),
+                     args.command = arg_str1(NULL, NULL, "command", "Sub-command to run"));
 
     args.iface->sval[0] = DEFAULT_INTERFACE_NAME;
 
@@ -258,6 +245,10 @@ int main(int argc, char *argv[])
                                              argc - args.command->hdr.idx,
                                              argv + args.command->hdr.idx)) != 0)
                 {
+                    if (ret == -1 && handler->custom_help == true)
+                    {
+                        ret = handler->help();
+                    }
                     mm_free_argtable(&handler->args);
                     if (ret > 0)
                         ret = MORSE_ARG_ERR;
@@ -266,6 +257,12 @@ int main(int argc, char *argv[])
 
                     goto exit;
                 }
+
+                /* Update argc and argv for potential argtable subcommand handlers.
+                 * Move them to point to the start of the subcommand arguments,
+                 * not the subcommand itself */
+                argc -= args.command->hdr.idx + 1;
+                argv += args.command->hdr.idx + 1;
             }
             else
             {

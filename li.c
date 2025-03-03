@@ -1,19 +1,6 @@
 /*
  * Copyright 2021 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -34,11 +21,19 @@ struct PACKED set_li_command
     uint16_t li;
 };
 
+static struct {
+    struct arg_int *unscaled;
+    struct arg_int *scale_idx;
+} args;
 
-static void usage(struct morsectrl *mors) {
-    mctrl_print("\tli <unscaled_int> <scale_idx>\t\tsets listen interval.\n");
-    mctrl_print("\t\t\t\tScale index: 0=1, 1=10, 2=1000, 3=10000\n");
-    mctrl_print("\t\t\t\tIf the node is an AP this set the max listen interval\n");
+int li_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Set the max listen interval (AP mode only)",
+        args.unscaled = arg_rint1(NULL, NULL, "<unscaled interval>", 0, UNSCALED_INTERVAL_MAX,
+            "Unscaled listen interval"),
+        args.scale_idx = arg_rint1(NULL, NULL, "<scale index>", 0, 3,
+            "Scale index: 0=1, 1=10, 2=100, 3=1000"));
+    return 0;
 }
 
 int li(struct morsectrl *mors, int argc, char *argv[])
@@ -50,19 +45,6 @@ int li(struct morsectrl *mors, int argc, char *argv[])
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc != 3)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        return -1;
-    }
-
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
@@ -71,21 +53,8 @@ int li(struct morsectrl *mors, int argc, char *argv[])
 
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_li_command);
 
-    if (str_to_uint32_range(argv[1], &unscaled_interval, 0, UNSCALED_INTERVAL_MAX))
-    {
-        mctrl_err("Invalid unscaled interval\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
-
-    if (str_to_uint8(argv[2], &scale_idx))
-    {
-        mctrl_err("Invalid scale index\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
+    unscaled_interval = args.unscaled->ival[0];
+    scale_idx = args.scale_idx->ival[0];
 
     /* Max is same as mask */
     cmd->li = htole32((unscaled_interval & UNSCALED_INTERVAL_MAX) | scale_idx << 14);

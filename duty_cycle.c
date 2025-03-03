@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -28,8 +15,8 @@
 #include "utilities.h"
 
 /* Limits on duty cycle, expressed in  percent */
-#define DUTY_CYCLE_MIN      (0.01)
-#define DUTY_CYCLE_MAX      (100.0)
+#define DUTY_CYCLE_MIN      0.01
+#define DUTY_CYCLE_MAX      100.0
 
 #define DUTY_CYCLE_SET_CFG_DUTY_CYCLE         BIT(0)
 #define DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP  BIT(1)
@@ -90,22 +77,27 @@ enum duty_cycle_cmd
     DUTY_CYCLE_CMD_AIRTIME
 };
 
-static void usage(struct morsectrl *mors)
+static struct {
+    struct arg_rex *enable;
+    struct arg_dbl *value;
+    struct arg_int *mode;
+    struct arg_lit *omit_cr;
+} args;
+
+int duty_cycle_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    mctrl_print("\tduty_cycle <command>\tconfigure duty cycle mode. ");
-    mctrl_print("omit command to retrieve settings.\n");
-    mctrl_print("\t\tenable\t<value> [options]\n");
-    mctrl_print("\t\t\t<value> set duty cycle in %% (%.2f-%.2f)\n",
-        DUTY_CYCLE_MIN, DUTY_CYCLE_MAX);
-    mctrl_print("\t\t\t-m <mode> mode of operation (0:spread, 1:burst). ");
-    mctrl_print("default:0\n");
-#if !defined(MORSE_CLIENT)
-    mctrl_print("\t\t\t-u <unit> time unit of each burst record entry (us)\n");
-#endif
-    mctrl_print("\t\t\t-o enables or disables omitting control responses ");
-    mctrl_print("from the duty cycle budget.\n");
-    mctrl_print("\t\tdisable\n");
-    mctrl_print("\t\tairtime\treturn remaining airtime (us), (burst mode only)\n");
+    MM_INIT_ARGTABLE(mm_args, "Query (default) or configure duty cycle mode",
+        args.enable = arg_rex0(NULL, NULL, "(enable|disable|airtime)", "{enable|disable|airtime}",
+        0, "Set duty cycle mode"),
+        arg_rem(NULL, "enable: Enable duty cycle mode"),
+        arg_rem(NULL, "disable: Disable duty cycle mode"),
+        arg_rem(NULL, "airtime: Return remaining airtime (usecs), in burst mode only"),
+        args.value = arg_dbl0(NULL, NULL, "<value>",
+            "Set duty cycle in % (" STR(DUTY_CYCLE_MIN) "-" STR(DUTY_CYCLE_MAX) ")"),
+        args.mode = arg_rint0("m", NULL, "<mode>", 0, 1, "Mode of operation. 0: spread, 1: burst"),
+        arg_rem(NULL, "Default mode: spread"),
+        args.omit_cr = arg_lit0("o", NULL, "Omit control responses from the duty cycle budget"));
+    return 0;
 }
 
 static int duty_cycle_parse_cmd(const char *str)
@@ -236,30 +228,17 @@ exit_set:
 
 int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
 {
-    int option;
     struct duty_cycle_configuration cfg = { 0 };
     struct duty_cycle_set_configuration_ext cfg_ext = { 0 };
     uint8_t set_cfgs = 0;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc == 1)
+    if (args.enable->count == 0)
     {
         /* No command supplied, user wants to get duty cycle settings */
         return get_duty_cycle(mors, false);
     }
 
-    int cmd = duty_cycle_parse_cmd(argv[1]);
-    if (cmd == -1)
-    {
-        mctrl_err("Invalid command\n");
-        usage(mors);
-        return -1;
-    }
+    int cmd = duty_cycle_parse_cmd(args.enable->sval[0]);
 
     if (cmd == DUTY_CYCLE_CMD_AIRTIME)
     {
@@ -270,10 +249,9 @@ int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
     {
         float duty_cycle;
 
-        if (argc < 3)
+        if (args.value->count == 0)
         {
-            mctrl_err("Invalid command parameters\n");
-            usage(mors);
+            mm_print_missing_argument(&args.value->hdr);
             return -1;
         }
 
@@ -282,69 +260,28 @@ int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
         set_cfgs |= DUTY_CYCLE_SET_CFG_EXT;
 
         /* Parse duty cycle settings */
-        duty_cycle = strtof(argv[2], NULL);
+        duty_cycle = args.value->dval[0];
         if ((duty_cycle < (float)DUTY_CYCLE_MIN) || (duty_cycle > (float)DUTY_CYCLE_MAX))
         {
             mctrl_err("Invalid duty cycle %f (%.2f-%.2f).\n",
                     duty_cycle, DUTY_CYCLE_MIN, DUTY_CYCLE_MAX);
-            usage(mors);
             return -1;
         }
 
         cfg.duty_cycle = (uint32_t)(duty_cycle * 100);
         cfg_ext.mode = DUTY_CYCLE_MODE_SPREAD; /* default mode */
 
-        argc -= 2;
-        argv += 2;
-        while ((option = getopt(argc, argv, "m:u:o")) != -1)
+        if (args.omit_cr->count)
         {
-            switch (option)
-            {
-                case 'o':
-                {
-                    cfg.omit_control_responses = 1;
-                    set_cfgs |= DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP;
-                    break;
-                }
-                case 'm':
-                {
-                    uint8_t val;
-
-                    if (str_to_uint8_range(optarg, &val, 0, DUTY_CYCLE_MODE_LAST) < 0)
-                    {
-                        mctrl_err("Duty cycle mode of operation not valid\n");
-                        usage(mors);
-                        return -1;
-                    }
-
-                    cfg_ext.mode = val;
-                    break;
-                }
-#if !defined(MORSE_CLIENT)
-                case 'u':
-                {
-                    uint32_t val;
-
-                    if (str_to_uint32(optarg, &val) < 0)
-                    {
-                        mctrl_err("Invalid value for the unit of burst mode records\n");
-                        usage(mors);
-                        return -1;
-                    }
-
-                    cfg_ext.burst_record_unit_us = val;
-                    set_cfgs |= DUTY_CYCLE_SET_CFG_BURST_RECORD_UNIT;
-                    break;
-                }
-#endif
-                default:
-                {
-                    mctrl_err("Unknown option to enable command\n");
-                    usage(mors);
-                    return -1;
-                }
-            }
+            cfg.omit_control_responses = 1;
+            set_cfgs |= DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP;
         }
+
+        if (args.mode->count)
+        {
+            cfg_ext.mode = args.mode->ival[0];
+        }
+
     }
     else if (cmd == DUTY_CYCLE_CMD_DISABLE)
     {

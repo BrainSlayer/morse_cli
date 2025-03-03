@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  *
  */
 
@@ -40,6 +27,9 @@
 
 /* The maximum number of bits in the NDP bitmap */
 #define DOT11AH_NDP_MAX_BITMAP_BIT          (16)
+
+#define LABEL_LEN   48
+#define INDENT_LEN  4
 
 /**
  * A counter of the number of times an MPDU is received successfully for each position in the AMPDU
@@ -143,6 +133,13 @@ struct PACKED stats_response
     uint8_t stats[2048];
 };
 
+/**
+ * A int32_t generic array
+ **/
+typedef struct __attribute__((packed)) {
+    int16_t count;
+    int16_t array[];
+} array_t;
 
 /** Enum type for printing format  */
 enum format_type
@@ -168,3 +165,9 @@ void hexdump(const uint8_t *buf, uint32_t len);
 const struct format_table* stats_format_json_get_formatter_table();
 void stats_format_json_init();
 void stats_format_json_set_pprint(bool pprint);
+
+/** Generic formatted print funtions */
+void stats_print_signed(const char *key, int64_t value, int indent_level);
+void stats_print_unsigned(const char *key, uint64_t value, int indent_level);
+void stats_print_float(const char *key, float value, int indent_level);
+void stats_print_hex(const char *key, int64_t value, int indent_level);

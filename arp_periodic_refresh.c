@@ -1,19 +1,6 @@
 /*
  * Copyright 2024 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -52,13 +39,13 @@ static struct
 int arp_periodic_refresh_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args,
-          "Configure the firmware to send a periodic ARP packet",
-          args.arp_refresh_period_s = arg_int1("t", NULL, "<period>",
+        "Configure the firmware to send a periodic ARP packet",
+        args.arp_refresh_period_s = arg_int1("t", NULL, "<period>",
             "Period in seconds between ARP transmissions. A value of 0 disables the feature."),
-          args.destination_address = arg_str0("d", NULL, "<dest IP>",
-             "IP in dotted decimal notation - target protocol address field of the ARP request"),
-          args.send_as_garp = arg_lit0("g", NULL,
-                                  "Send as a Gratuitous ARP (GARP) instead of an ARP request"));
+        args.destination_address = arg_str0("d", NULL, "<dest IP>",
+            "IP in dotted decimal notation - target protocol address field of the ARP request"),
+        args.send_as_garp = arg_lit0("g", NULL,
+            "Send as a Gratuitous ARP (GARP) instead of an ARP request"));
     return 0;
 }
 

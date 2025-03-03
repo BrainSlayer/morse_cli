@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 #include <string.h>
 #include <stdio.h>
@@ -57,13 +44,23 @@ struct PACKED command_mpsw_cfg_cfm
     struct mpsw_configuration config;
 };
 
-static void usage(struct morsectrl *mors)
+static struct {
+    struct arg_csi *bounds;
+    struct arg_int *len;
+    struct arg_rex *enable;
+} args;
+
+int mpsw_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    mctrl_print("\tmpsw <opts>\t");
-    mctrl_print("configure or query (with no args) the minimum packet spacing window parameters\n");
-    mctrl_print("\t\t-b <lower bound us> <upper bound us>\n");
-    mctrl_print("\t\t-w <packet spacing window length us>\n");
-    mctrl_print("\t\t-e <disable or enable mpsw 0|1>\n");
+    MM_INIT_ARGTABLE(
+        mm_args, "Get (default) or set Minimum Packet Spacing Window parameters",
+        args.bounds = arg_csi0("b", NULL, "<low usecs>,<high usecs>", NUM_BOUNDS_VALUES,
+            "Min required/max allowable packet airtime duration to trigger spacing"),
+        args.len = arg_int0("w", NULL, "<length>",
+            "Length of time to close the TX window between packets"),
+        args.enable = arg_rex0("e", NULL, "(0|1)", "{0|1}", 0,
+            "Enable airtime bounds checking and packet spacing enforcement"));
+    return 0;
 }
 
 static void print_mpsw_cfg(struct mpsw_configuration *cfg)
@@ -74,78 +71,14 @@ static void print_mpsw_cfg(struct mpsw_configuration *cfg)
     mctrl_print("Packet Spacing Window Length: %u\n", cfg->packet_space_window_length_us);
 }
 
-/* Only call this function when parsing arguments in a getopt while loop context */
-static int parse_bounds_flag_args(char *argv[], int argc,
-                                  struct command_mpsw_cfg_req *cmd)
-{
-    int flag_idx = 0;
-    uint32_t tmp;
-
-    optind--;
-    for (; optind < argc && *argv[optind] != '-'; optind++)
-    {
-        if (flag_idx == NUM_BOUNDS_VALUES)
-        {
-            break;
-        }
-        if (!argv[optind] || *argv[optind] == '-')
-        {
-            mctrl_err("Not enough args for -b");
-            return -1;
-        }
-        if (flag_idx == 0)
-        {
-            if (str_to_uint32(argv[optind], &tmp))
-            {
-                return -1;
-            }
-            cmd->config.airtime_min_us = tmp;
-        }
-        if (flag_idx == 1)
-        {
-            if (str_to_uint32(argv[optind], &tmp))
-            {
-                return -1;
-            }
-            cmd->config.airtime_max_us = tmp;
-        }
-        flag_idx++;
-    }
-
-    if (((cmd->config.airtime_min_us > cmd->config.airtime_max_us) &&
-         (cmd->config.airtime_max_us != AIRTIME_UNLIMITED)) ||
-         (cmd->config.airtime_min_us == cmd->config.airtime_max_us))
-    {
-        mctrl_err("airtime_min (%d) must be < airtime max (%d), or airtime max must be 0\n",
-               cmd->config.airtime_min_us,
-               cmd->config.airtime_max_us);
-        return -1;
-    }
-
-    cmd->set_cfgs |= SET_MPSW_CFG_AIRTIME_BOUNDS;
-    cmd->config.airtime_min_us = htole32(cmd->config.airtime_min_us);
-    cmd->config.airtime_max_us = htole32(cmd->config.airtime_max_us);
-    return 0;
-}
-
-
 int mpsw(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
-    int option;
-    int enable;
-    uint32_t tmp;
 
     struct command_mpsw_cfg_req *cmd_mpsw;
     struct command_mpsw_cfg_cfm *rsp_mpsw;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd_mpsw));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp_mpsw));
@@ -166,44 +99,37 @@ int mpsw(struct morsectrl *mors, int argc, char *argv[])
 
     memset(cmd_mpsw, 0, sizeof(*cmd_mpsw));
 
-    while ((option = getopt(argc, argv, "b:w:e:")) != -1)
+    if (args.bounds->count)
     {
-        switch (option)
+        cmd_mpsw->config.airtime_min_us = args.bounds->ival[0][0];
+        cmd_mpsw->config.airtime_max_us = args.bounds->ival[0][1];
+
+        if (((cmd_mpsw->config.airtime_min_us > cmd_mpsw->config.airtime_max_us) &&
+             (cmd_mpsw->config.airtime_max_us != AIRTIME_UNLIMITED)) ||
+             (cmd_mpsw->config.airtime_min_us == cmd_mpsw->config.airtime_max_us))
         {
-            case 'b':
-                ret = parse_bounds_flag_args(argv, argc, cmd_mpsw);
-                if (ret < 0)
-                {
-                    mctrl_err("Failed to parse values for -b\n");
-                    goto exit;
-                }
-                break;
-            case 'w':
-                if (str_to_uint32(optarg, &tmp))
-                {
-                    mctrl_err("Invalid value for -w\n");
-                    ret = -1;
-                    goto exit;
-                }
-                cmd_mpsw->set_cfgs |= SET_MPSW_CFG_PKT_SPC_WIN_LEN;
-                cmd_mpsw->config.packet_space_window_length_us = htole32(tmp);
-                break;
-            case 'e':
-                enable = expression_to_int(optarg);
-                if (enable == -1)
-                {
-                    mctrl_err("Invalid value (%d) for -e\n", enable);
-                    ret = -1;
-                    goto exit;
-                }
-                cmd_mpsw->set_cfgs |= SET_MPSW_CFG_ENABLED;
-                cmd_mpsw->config.enable = enable;
-                break;
-            default:
-                usage(mors);
-                ret = -1;
-                goto exit;
+            mctrl_err(
+                "airtime min (%d) must be less than airtime max (%d), or airtime max must be %d\n",
+                cmd_mpsw->config.airtime_min_us, cmd_mpsw->config.airtime_max_us,
+                AIRTIME_UNLIMITED);
+            goto exit;
         }
+
+        cmd_mpsw->set_cfgs |= SET_MPSW_CFG_AIRTIME_BOUNDS;
+        cmd_mpsw->config.airtime_min_us = htole32(cmd_mpsw->config.airtime_min_us);
+        cmd_mpsw->config.airtime_max_us = htole32(cmd_mpsw->config.airtime_max_us);
+    }
+
+    if (args.len->count)
+    {
+        cmd_mpsw->set_cfgs |= SET_MPSW_CFG_PKT_SPC_WIN_LEN;
+        cmd_mpsw->config.packet_space_window_length_us = htole32(args.len->ival[0]);
+    }
+
+    if (args.enable->count)
+    {
+        cmd_mpsw->set_cfgs |= SET_MPSW_CFG_ENABLED;
+        cmd_mpsw->config.enable = expression_to_int(args.enable->sval[0]);
     }
 
     ret = morsectrl_send_command(mors->transport,

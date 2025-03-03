@@ -1,19 +1,6 @@
 /*
  * Copyright 2023 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -53,36 +40,31 @@ struct PACKED uapsd_cfm
     uint8_t auto_trigger_enabled;
 };
 
-static void usage(struct morsectrl *mors)
+static struct
 {
-    mctrl_print("\tuapsd -a <enable/disable> -t <timeout in ms>\n");
-    mctrl_print("\t\tU-APSD auto trigger frame control\n");
-    mctrl_print("\t\t-a <value>\tEnable/Disable auto trigger frame\n");
-    mctrl_print("\t\t-t <value>\tTimeout at which trigger frame is send when enabled\n");
+    struct arg_rex *enable;
+    struct arg_int *timeout;
+} args;
+
+int uapsd_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "U-APSD auto trigger frame control",
+        args.enable = arg_rex1("a", NULL, "(enable|disable|1|0)", "{enable|disable|1|0}", 0,
+            "Enable/disable auto trigger frame"),
+        args.timeout = arg_rint0("t", "timeout", "<duration>",
+            AUTO_TRIGGER_TIMEOUT_MIN, AUTO_TRIGGER_TIMEOUT_MAX,
+            "Timeout at which a trigger frame is sent when enabled (ms)"));
+    return 0;
 }
 
 int uapsd(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
-    int option;
     uint8_t is_auto_trigger_enabled = AUTO_TRIGGER_FLAG_DEFAULT;
-    uint32_t timeout_in_ms = AUTO_TRIGGER_TIMEOUT_DEFAULT;
     struct set_uapsd *cmd;
     struct uapsd_cfm *rsp;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc < 2 || argc > 7)
-    {
-        usage(mors);
-        return -1;
-    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp));
@@ -93,58 +75,28 @@ int uapsd(struct morsectrl *mors, int argc, char *argv[])
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_uapsd);
 
     memset(cmd, 0, sizeof(*cmd));
-    while ((option = getopt(argc, argv, "a:t:")) != -1)
+
+    if (expression_to_int(args.enable->sval[0]))
     {
-        switch (option) {
-        case 'a' :
-            if (str_to_uint8_range(optarg, &is_auto_trigger_enabled,
-                AUTO_TRIGGER_DISABLED, AUTO_TRIGGER_ENABLED) < 0)
-            {
-                mctrl_err("Auto trigger enable flag %u must be either disabled %u : enabled %u\n",
-                        is_auto_trigger_enabled, AUTO_TRIGGER_DISABLED, AUTO_TRIGGER_ENABLED);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            cmd->auto_trigger_enabled = is_auto_trigger_enabled;
-            break;
-        case 't' :
-            if (str_to_uint32_range(optarg, &timeout_in_ms,
-                AUTO_TRIGGER_TIMEOUT_MIN, AUTO_TRIGGER_TIMEOUT_MAX) < 0)
-            {
-                mctrl_err("Auto trigger timeout %u must be between min %u : max %u\n",
-                        timeout_in_ms, AUTO_TRIGGER_TIMEOUT_MIN, AUTO_TRIGGER_TIMEOUT_MAX);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            cmd->auto_trigger_timeout = timeout_in_ms;
-            break;
-        case '?' :
-            usage(mors);
-            goto exit;
-        default :
-            mctrl_err("Invalid argument\n");
-            usage(mors);
-            goto exit;
-        }
+        is_auto_trigger_enabled = AUTO_TRIGGER_ENABLED;
+    }
+    else
+    {
+        is_auto_trigger_enabled = AUTO_TRIGGER_DISABLED;
     }
 
-    if (is_auto_trigger_enabled == AUTO_TRIGGER_FLAG_DEFAULT)
+    if ((is_auto_trigger_enabled && args.timeout->count == 0) ||
+        (!is_auto_trigger_enabled && args.timeout->count == 1))
     {
-        mctrl_err("Invalid is_auto_trigger_enabled %d\n", is_auto_trigger_enabled);
-        usage(mors);
+        mctrl_err("Invalid argument combination, -t required only if enabling auto trigger\n");
         goto exit;
     }
 
-    if ((is_auto_trigger_enabled == AUTO_TRIGGER_ENABLED &&
-        timeout_in_ms == AUTO_TRIGGER_TIMEOUT_DEFAULT) ||
-        (is_auto_trigger_enabled == AUTO_TRIGGER_DISABLED &&
-        timeout_in_ms != AUTO_TRIGGER_TIMEOUT_DEFAULT))
+    cmd->auto_trigger_enabled = is_auto_trigger_enabled;
+
+    if (args.timeout->count)
     {
-        mctrl_err("Invalid timeout_in_ms %d\n", timeout_in_ms);
-        usage(mors);
-        goto exit;
+        cmd->auto_trigger_timeout = args.timeout->ival[0];
     }
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_UAPSD_CONFIG,

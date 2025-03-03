@@ -1,19 +1,6 @@
 #
 # Copyright 2020-2023 Morse Micro
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, see
-# <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
 #
 
 # Note: this will default to hiding away the command lines of executed commands to make
@@ -26,7 +13,7 @@ Q = @
 endif
 
 
-override MORSECTRL_VERSION_STRING = "rel_1_12_5_2024_Jul_25-4-g3541610"
+override MORSECTRL_VERSION_STRING = "rel_1_13_3_2024_Nov_11"
 DEFAULT_INTERFACE_NAME ?= "wlan0"
 
 MORSECTRL_CFLAGS = $(CFLAGS)
@@ -83,6 +70,7 @@ SRCS += li.c
 SRCS += whitelist.c
 SRCS += arp_periodic_refresh.c
 SRCS += otp.c
+SRCS += power.c
 
 SRCS += transport/transport.c
 

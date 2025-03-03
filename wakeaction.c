@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 #include <errno.h>
 #include <stdlib.h>
@@ -32,11 +19,19 @@ struct PACKED command_send_wake_action_frame_req
     uint8_t payload[0];
 };
 
+static struct
+{
+    struct arg_rex *macaddr;
+    struct arg_str *payload;
+} args;
 
-static void usage(struct morsectrl *mors) {
-    mctrl_print("\twakeaction <destination MAC address> <hex string payload>\n");
-    mctrl_print("\t\t\t\tsends a wake action frame with the given payload to a destination\n");
-    mctrl_print("\t\t\t\tmac address.\n");
+int wakeaction_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Send a wake action frame with the given payload to a destination",
+        args.macaddr = arg_rex1(NULL, NULL, "([a-f0-9]{2}:){5}([a-f0-9]{2})",
+            "<MAC Address>", ARG_REX_ICASE, "Destination MAC address"),
+        args.payload = arg_str1(NULL, NULL, "<payload>", "Hex string of payload to send"));
+    return 0;
 }
 
 int wakeaction(struct morsectrl *mors, int argc, char *argv[])
@@ -47,23 +42,10 @@ int wakeaction(struct morsectrl *mors, int argc, char *argv[])
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
     int payload_size = 0;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc != 3)
-    {
-        usage(mors);
-        return -1;
-    }
-
-    payload_size = strlen(argv[2]);
+    payload_size = strlen(args.payload->sval[0]);
     if ((payload_size % 2) != 0)
     {
         mctrl_err("Invalid hex string, length must be a multiple of 2\n");
-        usage(mors);
         return -1;
     }
 
@@ -80,17 +62,15 @@ int wakeaction(struct morsectrl *mors, int argc, char *argv[])
 
     cmd->payload_size = payload_size;
 
-    if (hexstr2bin(argv[2], cmd->payload, payload_size) < 0)
+    if (hexstr2bin(args.payload->sval[0], cmd->payload, payload_size) < 0)
     {
         mctrl_err("Invalid hex string\n");
-        usage(mors);
         goto exit;
     }
 
-    if (str_to_mac_addr(cmd->dest_addr, argv[1]) < 0)
+    if (str_to_mac_addr(cmd->dest_addr, args.macaddr->sval[0]) < 0)
     {
         mctrl_err("Invalid MAC address - must be in the format aa:bb:cc:dd:ee:ff\n");
-        usage(mors);
         goto exit;
     }
 

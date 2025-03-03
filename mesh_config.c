@@ -1,19 +1,6 @@
 /*
  * Copyright 2023 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -52,38 +39,33 @@ struct PACKED set_mesh_config
     uint8_t max_plinks;
 };
 
-static void usage(struct morsectrl *mors)
+static struct
 {
-    mctrl_print("\tmesh_config -m <mesh id> [-b <beaconless mode>] -p <max_peer_links>\n");
-    mctrl_print("\t\t\tConfigure Mesh\n");
-    mctrl_print("\t\t-m <value>\tMesh ID as a hex string\n");
-    mctrl_print("\t\t-b <value>\tMesh beaconless mode. 1: enable, 0: disable\n");
-    mctrl_print("\t\t-p <value>\tMaximum number of peer links. Min:%u, Max:%u\n",
-        PEER_LINKS_MIN, PEER_LINKS_MAX);
-    mctrl_print("\t\t\t\tdo not use - for internal use by wpa_supplicant\n");
+    struct arg_str *mesh_id;
+    struct arg_int *beaconless;
+    struct arg_int *peer_links;
+} args;
+
+
+int mesh_config_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Set mesh configuration parameters",
+        args.mesh_id = arg_str1("m", NULL, "<mesh id>", "Mesh ID as a hex string"),
+        args.beaconless = arg_rint0("b", NULL, "<mode>", MESH_BEACONLESS_MODE_DISABLE,
+        MESH_BEACONLESS_MODE_ENABLE, "Mesh beaconless mode, "
+        STR(MESH_BEACONLESS_MODE_ENABLE)": enable, " STR(MESH_BEACONLESS_MODE_DISABLE)": disable"),
+        args.peer_links = arg_rint1("p", NULL, "<max peer links>", PEER_LINKS_MIN, PEER_LINKS_MAX,
+            "Maximum number of peer links. (" STR(PEER_LINKS_MIN) "-" STR(PEER_LINKS_MAX) ")"));
+    return 0;
 }
 
 int mesh_config(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
-    int option;
     size_t length = 0;
     struct set_mesh_config *cmd;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-    uint8_t temp = 0;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc < 5 || argc > 7)
-    {
-        usage(mors);
-        return -1;
-    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
@@ -95,80 +77,43 @@ int mesh_config(struct morsectrl *mors, int argc, char *argv[])
 
     memset(cmd, 0, sizeof(*cmd));
 
-    while ((option = getopt(argc, argv, "m:b:p:")) != -1)
+    length = strlen(args.mesh_id->sval[0]);
+    if (!length || (length & 1))
     {
-        switch (option) {
-        case 'b' :
-            if (str_to_uint8_range(optarg, &temp,
-                MESH_BEACONLESS_MODE_DISABLE, MESH_BEACONLESS_MODE_ENABLE) < 0)
-            {
-                mctrl_err("Mesh beaconless mode %d must be either %u or %u\n",
-                        temp,
-                        MESH_BEACONLESS_MODE_DISABLE,
-                        MESH_BEACONLESS_MODE_ENABLE);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            cmd->mesh_beaconless_mode = temp;
-            break;
-        case 'm' :
-            length = strlen(optarg);
+        mctrl_err("Invalid Mesh ID hex string length\n");
+        ret = -1;
+        goto exit;
+    }
+    length = length / 2;
 
-            if (!length || (length & 1))
-            {
-                mctrl_err("Invalid Mesh ID hex string length\n");
-                ret = -1;
-                goto exit;
-            }
-            length = length / 2;
-
-            if (length > sizeof(cmd->mesh_id))
-            {
-                mctrl_err("Mesh ID invalid length:%zu, max allowed length is:%zu\n",
-                        length, sizeof(cmd->mesh_id));
-                ret = -1;
-                goto exit;
-            }
-
-            if (hexstr2bin(optarg, cmd->mesh_id, length))
-            {
-                mctrl_err("Invalid Mesh ID hex string\n");
-                ret = -1;
-                goto exit;
-            }
-            cmd->mesh_id_len = length;
-            break;
-        case 'p' :
-            if (str_to_uint8_range(optarg, &temp, PEER_LINKS_MIN, PEER_LINKS_MAX) < 0)
-            {
-                mctrl_err("Max peer links %d must be within in the range min %u max %u\n",
-                        temp,
-                        PEER_LINKS_MIN,
-                        PEER_LINKS_MAX);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            cmd->max_plinks = temp;
-            break;
-        case '?' :
-            usage(mors);
-            goto exit;
-        default :
-            mctrl_err("Invalid argument\n");
-            usage(mors);
-            goto exit;
-        }
+    if (length > sizeof(cmd->mesh_id))
+    {
+        mctrl_err("Mesh ID invalid length:%zu, max allowed length is:%zu\n",
+                length, sizeof(cmd->mesh_id));
+        ret = -1;
+        goto exit;
     }
 
+    if (hexstr2bin(args.mesh_id->sval[0], cmd->mesh_id, length))
+    {
+        mctrl_err("Invalid Mesh ID hex string\n");
+        ret = -1;
+        goto exit;
+    }
+    cmd->mesh_id_len = length;
+
+    if (args.beaconless->count > 0)
+    {
+        cmd->mesh_beaconless_mode = args.beaconless->ival[0];
+    }
+
+    cmd->max_plinks = args.peer_links->ival[0];
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_MESH_CONFIG,
                                  cmd_tbuff, rsp_tbuff);
 exit:
     if (ret)
     {
-        mctrl_err("Failed to set Mesh Config info\n");
-        usage(mors);
+        mctrl_err("Failed to set mesh configuration (err %d)\n", ret);
     }
 
     morsectrl_transport_buff_free(cmd_tbuff);

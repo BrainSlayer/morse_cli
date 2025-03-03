@@ -1,19 +1,6 @@
 /*
  * Copyright 2023 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 #pragma once
 
@@ -34,13 +21,28 @@ struct mm_argtable {
 
 void mctrl_print(const char* format, ...);
 
+/* Returns 1 if any of the given argtables parsed --help in their argument list,
+ * otherwise returns 0
+ */
+static inline int mm_check_help_argtable(struct mm_argtable * tables[], size_t size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        if (tables[i]->help->count)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static inline void mm_help_argtable(const char *name, struct mm_argtable *mm_args)
 {
-    mctrl_print("\t%s", name);
+    mctrl_print("    %s ", name);
     arg_print_syntax(stdout, mm_args->argtable, "\n");
     if (mm_args->desc)
-        mctrl_print("\t\t%s\n", mm_args->desc);
-    arg_print_glossary(stdout, mm_args->argtable, "\t\t%-40s %s\n");
+        mctrl_print("        %s\n", mm_args->desc);
+    arg_print_glossary(stdout, mm_args->argtable, "        %-40s %s\n");
 }
 
 static inline int mm_parse_argtable_noerror(const char *name, struct mm_argtable *mm_args,
@@ -52,11 +54,11 @@ static inline int mm_parse_argtable_noerror(const char *name, struct mm_argtable
 
     if (mm_args->help->count > 0)
     {
-        mctrl_print("%s %s", TOOL_NAME, name ? name : "");
+        mctrl_print("%s %s ", TOOL_NAME, name ? name : "");
         arg_print_syntax(stdout, mm_args->argtable, "\n");
         if (mm_args->desc)
-            mctrl_print("\t%s\n", mm_args->desc);
-        arg_print_glossary(stdout, mm_args->argtable, "\t%-40s %s\n");
+            mctrl_print("    %s\n", mm_args->desc);
+        arg_print_glossary(stdout, mm_args->argtable, "        %-40s %s\n");
         return -1;
     }
 
@@ -77,6 +79,33 @@ static inline int mm_parse_argtable(const char *name, struct mm_argtable *mm_arg
     return nerrors;
 }
 
+static inline void mm_print_missing_argument(struct arg_hdr *arg)
+{
+    mctrl_print("Missing argument: ");
+
+    if (arg->shortopts)
+    {
+        mctrl_print("-%s", arg->shortopts);
+    }
+    if (arg->shortopts && arg->longopts)
+    {
+        mctrl_print("/");
+    }
+    if (arg->longopts)
+    {
+        mctrl_print("--%s", arg->longopts);
+    }
+    if (arg->shortopts || arg->longopts)
+    {
+        mctrl_print(" ");
+    }
+    if (arg->datatype)
+    {
+        mctrl_print("%s", arg->datatype);
+    }
+    mctrl_print("\n");
+}
+
 static inline void mm_free_argtable(struct mm_argtable *mm_args)
 {
     arg_freetable(mm_args->argtable, mm_args->count);
@@ -84,17 +113,17 @@ static inline void mm_free_argtable(struct mm_argtable *mm_args)
 }
 
 // NOLINT(-whitespace/comma)
-#define MM_INIT_ARGTABLE(_argtable, _desc, ...) \
-    do { \
-        void *tmp_table[] = {                                       \
-            _argtable->help = arg_lit0("h", "help", \
-                                       "display this help and exit"), \
-            __VA_ARGS__ __VA_OPT__(,)                                   \
-            _argtable->end = arg_end(20)                                 \
-    };                                                                  \
-        _argtable->desc = _desc;                                        \
-        _argtable->argtable = malloc(sizeof(tmp_table));                \
-        memcpy(_argtable->argtable, tmp_table, sizeof(tmp_table));      \
-        _argtable->count = sizeof(tmp_table) / sizeof(_argtable->end);  \
+#define MM_INIT_ARGTABLE(_argtable, _desc, ...)                            \
+    do {                                                                   \
+        void *tmp_table[] = {                                              \
+            (_argtable)->help = arg_lit0("h", "help",                      \
+                                       "Display this help and exit"),      \
+            ##__VA_ARGS__,                                                 \
+            (_argtable)->end = arg_end(20)                                 \
+    };                                                                     \
+        (_argtable)->desc = (_desc);                                       \
+        (_argtable)->argtable = malloc(sizeof(tmp_table));                 \
+        memcpy((_argtable)->argtable, tmp_table, sizeof(tmp_table));       \
+        (_argtable)->count = sizeof(tmp_table) / sizeof((_argtable)->end); \
     } while (0)
 // NOLINT(+whitespace/comma)

@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <string.h>
@@ -28,56 +15,104 @@
 #include "stats_format.h"
 #include "utilities.h"
 
-
 /** Regular formatting functions for morsectrl statistics */
+
+static void stats_print_section_header(const char *key, int indent_level)
+{
+    mctrl_print("%*s%s\n",
+                indent_level * INDENT_LEN, "", key);
+}
+
+static void stats_print_label(const char *key, int indent_level)
+{
+    mctrl_print("%*s%-*s:",
+                indent_level * INDENT_LEN, "",
+                LABEL_LEN - (indent_level * INDENT_LEN), key);
+}
+
+void stats_print_signed(const char *key, int64_t value, int indent_level)
+{
+    mctrl_print("%*s%-*s: %" PRId64 "\n",
+                indent_level * INDENT_LEN, "",
+                LABEL_LEN - (indent_level * INDENT_LEN), key,
+                value);
+}
+
+void stats_print_unsigned(const char *key, uint64_t value, int indent_level)
+{
+    mctrl_print("%*s%-*s: %" PRIu64 "\n",
+                indent_level * INDENT_LEN, "",
+                LABEL_LEN - (indent_level * INDENT_LEN), key,
+                value);
+}
+
+void stats_print_hex(const char *key, int64_t value, int indent_level)
+{
+    mctrl_print("%*s%-*s: %" PRIx64 "\n",
+                indent_level * INDENT_LEN, "",
+                LABEL_LEN - (indent_level * INDENT_LEN), key,
+                value);
+}
+
+void stats_print_0hex(const char *key, int64_t value, int indent_level, uint32_t len)
+{
+    mctrl_print("%*s%-*s: 0x%0*" PRIx64 "\n",
+                indent_level * INDENT_LEN, "",
+                LABEL_LEN - (indent_level * INDENT_LEN), key,
+                len * 2, value);
+}
+
+void stats_print_float(const char *key, float value, int indent_level)
+{
+    mctrl_print("%*s%-*s: %f\n",
+                indent_level * INDENT_LEN, "",
+                LABEL_LEN - (indent_level * INDENT_LEN), key,
+                value);
+}
 
 static void print_dec(const char *key, const uint8_t *buf, uint32_t len)
 {
-    mctrl_print("%s:%" PRId64 "\n", key, get_signed_value_as_int64(buf, len));
+    stats_print_signed(key, get_signed_value_as_int64(buf, len), 0);
 }
-
 
 static void print_udec(const char *key, const uint8_t *buf, uint32_t len)
 {
-    mctrl_print("%s: %" PRIu64 "\n", key, get_unsigned_value_as_uint64(buf, len));
+    stats_print_unsigned(key, get_unsigned_value_as_uint64(buf, len), 0);
 }
 
 
 static void print_hex(const char *key, const uint8_t *buf, uint32_t len)
 {
-    mctrl_print("%s: 0x%" PRIx64 "\n", key, get_unsigned_value_as_uint64(buf, len));
+    stats_print_hex(key, get_unsigned_value_as_uint64(buf, len), 0);
 }
 
 
 static void print_0hex(const char *key, const uint8_t *buf, uint32_t len)
 {
-    mctrl_print("%s: 0x%0*" PRIx64 "\n", key, len * 2, get_unsigned_value_as_uint64(buf, len));
+    stats_print_0hex(key, get_unsigned_value_as_uint64(buf, len), 0, len);
 }
-
 
 static void print_ampdu_aggregates(const char *key, const uint8_t *buf, uint32_t len)
 {
     ampdu_count_t *count = (ampdu_count_t *)buf;
-    mctrl_print("%s: ", key);
+    stats_print_label(key, 0);
     for (int i = 0; i < MORSE_ARRAY_SIZE(count->count); i++)
     {
-        mctrl_print("%u ", count->count[i]);
+        mctrl_print(" %u", count->count[i]);
     }
     mctrl_print("\n");
 }
-
 
 static void print_ampdu_bitmap(const char *key, const uint8_t *buf, uint32_t len)
 {
     ampdu_bitmap_t *bitmap = (ampdu_bitmap_t *)buf;
-    mctrl_print("%s: ", key);
+    stats_print_label(key, 0);
     for (int i = 0; i < MORSE_ARRAY_SIZE(bitmap->bitmap); i++)
     {
-        mctrl_print("%u ", bitmap->bitmap[i]);
+        mctrl_print(" %u", bitmap->bitmap[i]);
     }
     mctrl_print("\n");
 }
-
 
 static void print_txop(const char *key, const uint8_t *buf, uint32_t len)
 {
@@ -90,134 +125,139 @@ static void print_txop(const char *key, const uint8_t *buf, uint32_t len)
         duration_avg = (uint32_t)(txop_stats->duration / txop_stats->count);
     }
 
-    mctrl_print("%s: ", key);
-    mctrl_print("TXOP count: %u\n", txop_stats->count);
-    mctrl_print("Total TXOP time: %" PRIu64 "\n", txop_stats->duration);
-    mctrl_print("Average TXOP time: %u\n", duration_avg);
-    mctrl_print("Total TXOP Tx packets: %u\n", txop_stats->pkts);
-    mctrl_print("Average TXOP Tx packets: %u\n", packets_avg);
+    stats_print_section_header(key, 0);
+    stats_print_unsigned("TXOP count", txop_stats->count, 1);
+    stats_print_unsigned("Total TXOP time", txop_stats->duration, 1);
+    stats_print_unsigned("Average TXOP time", duration_avg, 1);
+    stats_print_unsigned("Total TXOP TX packets", txop_stats->pkts, 1);
+    stats_print_unsigned("Average TXOP TX packets", packets_avg, 1);
 }
-
 
 static void print_pageset(const char *key, const uint8_t *buf, uint32_t len)
 {
     struct pageset_stats *pageset = (struct pageset_stats *)buf;
 
-    mctrl_print("%s: \n", key);
+    stats_print_section_header(key, 0);
     for (int i = 0; i < NUM_PAGESETS; i++)
     {
-        mctrl_print("Pageset %d\n", i);
-        mctrl_print("\tallocated: %d\n", pageset->pages_allocated[i]);
-        mctrl_print("\ttotal: %d\n", pageset->pages_to_allocate[i]);
+        mctrl_print("%*sPageset %d\n", INDENT_LEN, "", i);
+        stats_print_unsigned("Allocated", pageset->pages_allocated[i], 2);
+        stats_print_unsigned("Total", pageset->pages_to_allocate[i], 2);
     }
 }
-
 
 static void print_retries(const char *key, const uint8_t *buf, uint32_t len)
 {
     struct retry_stats *retries = (struct retry_stats *)buf;
-    mctrl_print("%s: \n", key);
-    mctrl_print("Retry\tCount\tAvg Time\n");
-    mctrl_print("=====\t=====\t========\n");
+    stats_print_section_header(key, 0);
+    mctrl_print("    Retry    Count    Avg Time\n");
+    mctrl_print("    =====    =====    ========\n");
 
     for (int i = 0; i < APP_STATS_COUNT; i++)
     {
-        mctrl_print("%d\t%u\t%u\n", i, retries->count[i],
+        mctrl_print("    %-8d %-8u %u\n", i, retries->count[i],
         retries->count[i] ? (uint32_t)(retries->sum[i]/retries->count[i]) : 0);
     }
 }
 
-
 static void print_raw(const char *key, const uint8_t *buf, uint32_t len)
 {
     raw_stats_t *raw_stats = (raw_stats_t *)buf;
-    mctrl_print("%s: \n", key);
-    mctrl_print("RAW Assignments\n\tValid:");
 
+    stats_print_section_header(key, 0);
+    stats_print_section_header("RAW Assignments", 1);
+
+    stats_print_label("Valid", 2);
     for (uint8_t i = 0; i < MORSE_ARRAY_SIZE(raw_stats->assignments); i++)
     {
         mctrl_print(" %d", raw_stats->assignments[i]);
     }
     mctrl_print("\n");
-    mctrl_print("\tTruncated by tbtt: %d\n", raw_stats->assignments_truncated_from_tbtt);
-    mctrl_print("\tInvalid: %d\n", raw_stats->invalid_assignments);
-    mctrl_print("\tAlready past: %d\n", raw_stats->already_past_assignment);
-    mctrl_print("Delayed due to RAW\n");
-    mctrl_print("\tFrom aci queue: %d\n", raw_stats->aci_frames_delayed);
-    mctrl_print("\tFrom bc/mc queue: %d\n", raw_stats->bc_mc_frames_delayed);
-    mctrl_print("\tFrom abs time queue: %d\n", raw_stats->abs_frames_delayed);
-    mctrl_print("\tFrame crosses slot: %d\n", raw_stats->frame_crosses_slot_delayed);
-}
 
+    stats_print_unsigned("Truncated by TBTT", raw_stats->assignments_truncated_from_tbtt, 2);
+    stats_print_unsigned("Invalid", raw_stats->invalid_assignments, 2);
+    stats_print_unsigned("Already past", raw_stats->already_past_assignment, 2);
+
+    stats_print_section_header("Delayed due to RAW", 1);
+    stats_print_unsigned("From ACI queue", raw_stats->aci_frames_delayed, 2);
+    stats_print_unsigned("From BC/MC queue", raw_stats->bc_mc_frames_delayed, 2);
+    stats_print_unsigned("From absolute time queue", raw_stats->abs_frames_delayed, 2);
+    stats_print_unsigned("Frame crosses slot", raw_stats->frame_crosses_slot_delayed, 2);
+}
 
 static void print_calibration(const char *key, const uint8_t *buf, uint32_t len)
 {
     managed_calibration_stats_t *calib_stats = (managed_calibration_stats_t *)buf;
-    mctrl_print("%s: \n", key);
-    mctrl_print("Manged Calibration\n");
-    mctrl_print("\tQuiet calibration granted: %d\n",
-            calib_stats->quiet_calibration_granted);
-    mctrl_print("\tQuiet calibration rejected: %d\n",
-            calib_stats->quiet_calibration_rejected);
-    mctrl_print("\tQuiet calibration cancelled: %d\n",
-            calib_stats->quiet_calibration_cancelled);
-    mctrl_print("\tNon-Quiet calibration granted: %d\n",
-            calib_stats->non_quiet_calibration_granted);
-    mctrl_print("\tCalibration complete: %d\n", calib_stats->calibration_complete);
-}
+    stats_print_section_header(key, 0);
 
+    stats_print_signed("Quiet calibration granted", calib_stats->quiet_calibration_granted, 1);
+    stats_print_signed("Quiet calibration rejected", calib_stats->quiet_calibration_rejected, 1);
+    stats_print_signed("Quiet calibration cancelled", calib_stats->quiet_calibration_cancelled, 1);
+    stats_print_signed("Non-quiet calibration granted",
+                       calib_stats->non_quiet_calibration_granted, 1);
+    stats_print_signed("Calibration complete", calib_stats->calibration_complete, 1);
+}
 
 static void print_duty_cycle(const char *key, const uint8_t *buf, uint32_t len)
 {
     duty_cycle_stats_t *duty_cycle_stats = (duty_cycle_stats_t *)buf;
-    mctrl_print("%s: \n", key);
-    mctrl_print("Duty Cycle Target (%%): %d.%02d\n",
-            duty_cycle_stats->target_duty_cycle / 100,
-            duty_cycle_stats->target_duty_cycle % 100);
-    mctrl_print("Duty Cycle TX On (us): %" PRIu64 "\n", duty_cycle_stats->total_t_air);
-    mctrl_print("Duty Cycle TX Off (Blocked) (us): %" PRIu64 "\n", duty_cycle_stats->total_t_off);
-    mctrl_print("Duty Cycle Max toff (us): %" PRIu64 "\n", duty_cycle_stats->max_t_off);
-    mctrl_print("Duty Cycle Early Frames: %u\n", duty_cycle_stats->num_early);
-}
+    stats_print_section_header(key, 0);
 
+    stats_print_label("Duty Cycle Target (%)", 1);
+    mctrl_print(" %d.%02d\n",
+                duty_cycle_stats->target_duty_cycle / 100,
+                duty_cycle_stats->target_duty_cycle % 100);
+    stats_print_unsigned("Duty Cycle TX on (usec)", duty_cycle_stats->total_t_air, 1);
+    stats_print_unsigned("Duty Cycle TX off (blocked) (usec)", duty_cycle_stats->total_t_off, 1);
+    stats_print_unsigned("Duty Cycle max time off (usec)", duty_cycle_stats->max_t_off, 1);
+    stats_print_unsigned("Duty Cycle early frames", duty_cycle_stats->num_early, 1);
+}
 
 static void print_mac_state(const char *key, const uint8_t *buf, uint32_t len)
 {
     uint64_t mac_state;
-    const uint8_t desc_len = 39;
     memcpy(&mac_state, buf, sizeof(mac_state));
-    mctrl_print("%s: \n", key);
-    mctrl_print("\n    %-*s :%" PRId64 "\n", desc_len, "RX state",
-        BMGET(mac_state, ENCODE_MAC_STATE_RX_STATE));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "TX state",
-        BMGET(mac_state, ENCODE_MAC_STATE_TX_STATE));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "Channel config",
-        BMGET(mac_state, ENCODE_MAC_STATE_CHANNEL_CONFIG));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "Managed calibration state",
-        BMGET(mac_state, ENCODE_MAC_STATE_MGD_CALIB_STATE));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "Powersave enabled",
-        BMGET(mac_state, ENCODE_MAC_STATE_PS_EN));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "Dynamic powersave offload enabled",
-        BMGET(mac_state, ENCODE_MAC_STATE_DYN_PS_OFFLOAD_EN));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "STA PS state",
-        BMGET(mac_state, ENCODE_MAC_STATE_STA_PS_STATE));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "Is waiting on dynamic powersave timeout",
-        BMGET(mac_state, ENCODE_MAC_STATE_WAITING_ON_DYN_PS));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "TX blocked by host cmd",
-        BMGET(mac_state, ENCODE_MAC_STATE_TX_BLOCKED));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "Is waiting for medium sync",
-        BMGET(mac_state, ENCODE_MAC_STATE_WAITING_MED_SYNC));
-    mctrl_print("    %-*s :%" PRId64 "\n", desc_len, "N packets in QoS queues",
-        BMGET(mac_state, ENCODE_MAC_STATE_N_PKTS_IN_QUEUES));
+    stats_print_section_header(key, 0);
+    stats_print_signed("RX state",
+                       BMGET(mac_state, ENCODE_MAC_STATE_RX_STATE), 1);
+    stats_print_signed("TX state",
+                       BMGET(mac_state, ENCODE_MAC_STATE_TX_STATE), 1);
+    stats_print_signed("Channel config",
+                       BMGET(mac_state, ENCODE_MAC_STATE_CHANNEL_CONFIG), 1);
+    stats_print_signed("Managed calibration state",
+                       BMGET(mac_state, ENCODE_MAC_STATE_MGD_CALIB_STATE), 1);
+    stats_print_signed("Powersave enabled",
+                       BMGET(mac_state, ENCODE_MAC_STATE_PS_EN), 1);
+    stats_print_signed("Dynamic powersave offload enabled",
+                       BMGET(mac_state, ENCODE_MAC_STATE_DYN_PS_OFFLOAD_EN), 1);
+    stats_print_signed("STA PS state",
+                       BMGET(mac_state, ENCODE_MAC_STATE_STA_PS_STATE), 1);
+    stats_print_signed("Waiting on dynamic powersave timeout",
+                       BMGET(mac_state, ENCODE_MAC_STATE_WAITING_ON_DYN_PS), 1);
+    stats_print_signed("TX blocked by host cmd",
+                       BMGET(mac_state, ENCODE_MAC_STATE_TX_BLOCKED), 1);
+    stats_print_signed("Waiting for medium sync",
+                       BMGET(mac_state, ENCODE_MAC_STATE_WAITING_MED_SYNC), 1);
+    stats_print_signed("Packets in QoS queues",
+                       BMGET(mac_state, ENCODE_MAC_STATE_N_PKTS_IN_QUEUES), 1);
 }
 
 
-
+static void print_array(const char *key, const uint8_t *buf, uint32_t len)
+{
+    array_t *array = (array_t *)buf;
+    stats_print_label(key, 0);
+    for (int i = 0; i < array->count; i++)
+    {
+        mctrl_print("%d ", array->array[i]);
+    }
+    mctrl_print("\n");
+}
 
 static void print_default(const char *key, const uint8_t *buf, uint32_t len)
 {
     /* Not implemented prior, use default hexdump in previous switch statement */
-    mctrl_print("%s :", key);
+    mctrl_print("%*s: ", LABEL_LEN, key);
     hexdump(buf, len);
     mctrl_print("\n");
 }
@@ -250,11 +290,11 @@ static const struct format_table table = {
         [MORSE_STATS_FMT_MAC_STATE] = print_mac_state,
         /* Add new function pointers here */
         /* [MORSE_STATS_NEW_TLV_FORMAT] = print_new_format */
+        [MORSE_STATS_FMT_ARRAY] = print_array,
 
         [MORSE_STATS_FMT_LAST] = print_default,
     }
 };
-
 
 const struct format_table* stats_format_regular_get_formatter_table()
 {

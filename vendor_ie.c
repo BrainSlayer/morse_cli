@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 #include <string.h>
 #include <stdio.h>
@@ -62,51 +49,53 @@ struct PACKED command_vendor_ie_cfm
     /* empty */
 };
 
-
-static void usage(struct morsectrl *mors)
+static struct
 {
-    mctrl_print("\tvendor_ie [-a <bytes> | -c | -o <oui> | -r ] [ -b | -p ]\t");
-    mctrl_print("Manipulate vendor information elements\n");
-    mctrl_print("\t\t-a <bytes>\tadd a vendor element (hex string)\n");
-    mctrl_print("\t\t-c\tclear previously added vendor elements\n");
-    mctrl_print("\t\t-o <oui>\tadd an OUI to the vendor IE whitelist (hex string)\n");
-    mctrl_print("\t\t-r\treset configured OUI whitelist\n");
-    mctrl_print("\t\t-b\tapply to beacons\n");
-    mctrl_print("\t\t-p\tapply to probes\n");
-    mctrl_print("\t\t-s\tapply to assocs\n");
-}
+    struct arg_str *add;
+    struct arg_lit *clear;
+    struct arg_rex *oui;
+    struct arg_lit *reset_oui_whitelist;
+    struct arg_lit *beacons;
+    struct arg_lit *probes;
+    struct arg_lit *assoc;
+} args;
 
-static int check_cmd_opcode_not_set(struct command_vendor_ie_req *cmd)
+int vendor_ie_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    if (cmd->opcode != MORSE_VENDOR_IE_OP_INVALID)
-    {
-        mctrl_err("Specify only one of [a,o,r,c]\n");
-        return -1;
-    }
+    MM_INIT_ARGTABLE(mm_args, "Manipulate vendor information elements",
+        args.add = arg_str0("a", "add", "<bytes>", "Add a vendor element (hex string)"),
+        args.clear = arg_lit0("c", "clear", "Clear previously added vendor elements"),
+        args.oui = arg_rex0("o", "oui", "[a-z0-9]{6}", "<OUI>", ARG_REX_ICASE,
+            "Add an OUI to the vendor IE whitelist (hex string)"),
+        args.reset_oui_whitelist = arg_lit0("r", NULL, "Reset configured OUI whitelist"),
+        args.beacons = arg_lit0("b", "beacon", "Apply to beacons"),
+        args.probes = arg_lit0("p", "probe", "Apply to probe requests/responses"),
+        args.assoc = arg_lit0("s", "assoc", "Apply to assoc requests/responses"));
     return 0;
 }
 
 int vendor_ie(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = 0;
-    int option;
     size_t length = 0;
+    int count;
 
     struct command_vendor_ie_req *cmd_vie;
     struct command_vendor_ie_cfm *rsp_vie;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
 
-    if (argc == 0)
+    count = args.add->count + args.clear->count + args.oui->count + args.reset_oui_whitelist->count;
+
+    if (count > 1)
     {
-        usage(mors);
-        return 0;
+        mctrl_err("Specify only one of [-a, -o, -r, -c]\n");
+        return -1;
     }
 
-    if (argc < 2)
+    if (count == 0)
     {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
+        mctrl_err("You must specify one of [-a, -o, -r, -c]\n");
         return -1;
     }
 
@@ -132,126 +121,76 @@ int vendor_ie(struct morsectrl *mors, int argc, char *argv[])
     cmd_vie->opcode = MORSE_VENDOR_IE_OP_INVALID;
     cmd_vie->mgmt_type_mask = 0;
 
-    while ((option = getopt(argc, argv, "a:o:crhpsb")) != -1)
+    if (args.probes->count)
     {
-        switch (option)
+        cmd_vie->mgmt_type_mask |= (MORSE_VENDOR_IE_TYPE_PROBE_REQ |
+                                    MORSE_VENDOR_IE_TYPE_PROBE_RESP);
+    }
+
+    if (args.assoc->count)
+    {
+        cmd_vie->mgmt_type_mask |= (MORSE_VENDOR_IE_TYPE_ASSOC_REQ |
+                                    MORSE_VENDOR_IE_TYPE_ASSOC_RESP);
+    }
+
+    if (args.beacons->count)
+    {
+        cmd_vie->mgmt_type_mask |= MORSE_VENDOR_IE_TYPE_BEACON;
+    }
+
+    if (args.add->count)
+    {
+        const char *ie_str = args.add->sval[0];
+        length = strlen(ie_str);
+        if (length & 1)
         {
-            case 'a':
-            {
-                ret = check_cmd_opcode_not_set(cmd_vie);
-                if (ret)
-                    goto exit;
-
-                length = strlen(optarg);
-
-                if (length & 1)
-                {
-                    mctrl_err("Odd number of characters in data bytestring\n");
-                    ret = -1;
-                    goto exit;
-                }
-                length = length / 2;
-
-                if (length > sizeof(cmd_vie->data))
-                {
-                    mctrl_err("Vendor IE has too many bytes %zu\n", length);
-                    ret = -1;
-                    goto exit;
-                }
-
-                cmd_vie->opcode = MORSE_VENDOR_IE_OP_ADD_ELEMENT;
-                if (hexstr2bin(optarg, cmd_vie->data, length))
-                {
-                    mctrl_err("Invalid hex string\n");
-                    ret = -1;
-                    goto exit;
-                }
-                break;
-            }
-            case 'p':
-            {
-                cmd_vie->mgmt_type_mask |= (MORSE_VENDOR_IE_TYPE_PROBE_REQ |
-                                            MORSE_VENDOR_IE_TYPE_PROBE_RESP);
-                break;
-            }
-            case 's':
-            {
-                cmd_vie->mgmt_type_mask |= (MORSE_VENDOR_IE_TYPE_ASSOC_REQ |
-                                            MORSE_VENDOR_IE_TYPE_ASSOC_RESP);
-                break;
-            }
-            case 'b':
-            {
-                cmd_vie->mgmt_type_mask |= MORSE_VENDOR_IE_TYPE_BEACON;
-                break;
-            }
-            case 'c':
-            {
-                ret = check_cmd_opcode_not_set(cmd_vie);
-                if (ret)
-                    goto exit;
-
-
-                cmd_vie->opcode = MORSE_VENDOR_IE_OP_CLEAR_ELEMENTS;
-                break;
-            }
-            case 'o':
-            {
-                ret = check_cmd_opcode_not_set(cmd_vie);
-                if (ret)
-                    goto exit;
-
-
-                length = strlen(optarg) / 2;
-                if (length != NUM_OUI_BYTES)
-                {
-                    ret = -1;
-                    mctrl_err("invalid oui length\n");
-                    goto exit;
-                }
-                cmd_vie->opcode = MORSE_VENDOR_IE_OP_ADD_FILTER;
-                hexstr2bin(optarg, cmd_vie->data, length);
-                break;
-            }
-            case 'r':
-            {
-                ret = check_cmd_opcode_not_set(cmd_vie);
-                if (ret)
-                    goto exit;
-
-
-                cmd_vie->opcode = MORSE_VENDOR_IE_OP_CLEAR_FILTERS;
-                break;
-            }
-            case 'h':
-            {
-                ret = 0;
-                usage(mors);
-                goto exit;
-            }
-            default:
-                ret = -1;
-                mctrl_err("Unrecognised command parameters\n");
-                usage(mors);
-                goto exit;
+            mctrl_err("Odd number of characters in data bytestring\n");
+            ret = -1;
+            goto exit;
         }
+        length = length / 2;
+
+        if (length > sizeof(cmd_vie->data))
+        {
+            mctrl_err("Vendor IE has too many bytes %zu\n", length);
+            ret = -1;
+            goto exit;
+        }
+
+        cmd_vie->opcode = MORSE_VENDOR_IE_OP_ADD_ELEMENT;
+        if (hexstr2bin(ie_str, cmd_vie->data, length))
+        {
+            mctrl_err("Invalid hex string\n");
+            ret = -1;
+            goto exit;
+        }
+    }
+
+    if (args.oui->count)
+    {
+        const char *oui_str = args.oui->sval[0];
+        length = strlen(oui_str) / 2;
+        cmd_vie->opcode = MORSE_VENDOR_IE_OP_ADD_FILTER;
+        hexstr2bin(oui_str, cmd_vie->data, length);
+    }
+
+    if (args.reset_oui_whitelist->count)
+    {
+        cmd_vie->opcode = MORSE_VENDOR_IE_OP_CLEAR_FILTERS;
+    }
+
+    if (args.clear->count)
+    {
+        cmd_vie->opcode = MORSE_VENDOR_IE_OP_CLEAR_ELEMENTS;
     }
 
     /* set the length used in command */
     morsectrl_transport_set_cmd_data_length(cmd_tbuff,
                                 length + sizeof(*cmd_vie) - sizeof(cmd_vie->data));
 
-    if (cmd_vie->opcode == MORSE_VENDOR_IE_OP_INVALID)
-    {
-        mctrl_err("No command specified\n");
-        usage(mors);
-        goto exit;
-    }
-
     if (cmd_vie->mgmt_type_mask == 0)
     {
         mctrl_err("No frame type specified\n");
-        usage(mors);
         goto exit;
     }
 

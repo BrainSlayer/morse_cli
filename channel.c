@@ -1,19 +1,6 @@
 /*
  * Copyright 2020 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -42,7 +29,7 @@ static struct
 
 int channel_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    MM_INIT_ARGTABLE(mm_args, "Set or get channel parameters",
+    MM_INIT_ARGTABLE(mm_args, "Get (default) or set channel parameters",
                      args.all_channels = arg_lit0("a", NULL, "prints all the channel "
                                                   "information i.e. full, DTIM, and current"),
                      args.frequency = arg_int0("c", NULL, "<freq>",

@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 #include <string.h>
 #include <stdio.h>
@@ -28,8 +15,20 @@
 #define TWT_WAKE_DURATION_UNIT                      (256)
 #define TWT_WAKE_INTERVAL_EXPONENT_MAX_VAL          (31)
 #define TWT_WAKE_DURATION_MAX_US                    (65280) /* UINT8_MAX * TWT_WAKE_DURATION_UNIT */
-#define TWT_MAX_SETUP_COMMAND_VAL                   (7)
-#define TWT_MAX_FLOW_ID_VAL                         (7)
+#define TWT_MAX_SETUP_COMMAND_VAL                   7
+#define TWT_MAX_FLOW_ID_VAL                         7
+
+#define TWT_WAKE_INTERVAL_DATATYPE "<wake interval>"
+#define TWT_WAKE_INTERVAL_GLOSSARY "Wake interval (usecs)"
+
+#define TWT_WAKE_DURATION_DATATYPE "<min wake duration>"
+#define TWT_WAKE_DURATION_GLOSSARY "Minimum wake duration during TWT service period (usecs)"
+
+#define TWT_SETUP_CMD_DATATYPE "<command>"
+#define TWT_SETUP_CMD_GLOSSARY "TWT setup command to use:"
+
+#define TWT_FLOW_ID_DATATYPE "<flow id>"
+#define TWT_FLOW_ID_GLOSSARY "Flow id for TWT agreement (0-" STR(TWT_MAX_FLOW_ID_VAL) ")"
 
 typedef enum {
     TWT_CONF_SUBCMD_CONFIGURE,
@@ -68,47 +67,74 @@ struct PACKED command_twt_req {
     };
 };
 
-static void usage(struct morsectrl *mors)
+static struct {
+    struct arg_rex *command;
+} args;
+
+static struct mm_argtable configure;
+static struct mm_argtable remove_cmd;
+
+static struct mm_argtable *subcmds[] =
 {
-    mctrl_print(
-        "\ttwt <command>\tinstall or remove a TWT agreement on a STA interface (test only)\n");
-    mctrl_print("\t\tconf [options]\n");
-    mctrl_print("\t\t    -w <wake interval>\twake interval (us)\n");
-    mctrl_print(
-            "\t\t    -d <min wake duration>\tminimum wake duration during TWT service period (us). "
-            "Max value:%d\n", TWT_WAKE_DURATION_MAX_US);
-    mctrl_print("\t\t    -c <setup command>\ttwt setup commad to use "
-           "(0: request, 1: suggest, 2: demand)\n");
-#if !defined(MORSE_CLIENT)
-    mctrl_print("\t\tinstall [options]\n");
-    mctrl_print("\t\t    -f <flow id>\tflow id for TWT agreement\n");
-    mctrl_print("\t\t    -w <wake interval>\twake interval(us)\n");
-    mctrl_print(
-            "\t\t    -d <min wake duration>\tminimum wake duration during TWT service period (us). "
-            "Max value:%d\n", TWT_WAKE_DURATION_MAX_US);
-    mctrl_print("\t\t    -t <target wake time>\tthe target wake time (TSF) for the first TWT "
-            "service period\n");
-    mctrl_print("\t\texplicit [options]\n");
-    mctrl_print(
-            "\t\t    -d <min wake duration>\tminimum wake duration during TWT service period (us). "
-            "Max value:%d\n", TWT_WAKE_DURATION_MAX_US);
-    mctrl_print("\t\t    -m <wake interval mantissa>\twake interval mantissa\n");
-    mctrl_print("\t\t    -e <wake interval exponent>\twake interval exponent\n");
-    mctrl_print("\t\t    -c <setup command>\ttwt setup commad to use "
-           "(0: request, 1: suggest, 2: demand)\n");
-    mctrl_print("\t\tremove [options]\n");
-    mctrl_print("\t\t    -f <flow id>\tflow id for TWT agreement\n");
-#endif
+    &configure, &remove_cmd,
+};
+
+static struct {
+    struct arg_int *flow_id;
+    struct arg_llong *wake_interval;
+    struct arg_int *wake_duration;
+    struct arg_int *setup_command;
+} configure_args;
+
+static struct {
+    struct arg_int *flow_id;
+} remove_args;
+
+
+int twt_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+#define TWT_AVAILABLE_COMMANDS "conf|remove"
+
+    MM_INIT_ARGTABLE(mm_args, "Install or remove a TWT agreement on a STA interface",
+        args.command = arg_rex1(NULL, NULL, "(" TWT_AVAILABLE_COMMANDS ")",
+            "{" TWT_AVAILABLE_COMMANDS "}", 0, "TWT subcommand"));
+    args.command->hdr.flag |= ARG_STOPPARSE;
+
+    MM_INIT_ARGTABLE(&configure, "Configure TWT settings",
+        configure_args.flow_id = arg_rint0("f", NULL, TWT_FLOW_ID_DATATYPE, 0, TWT_MAX_FLOW_ID_VAL,
+            TWT_FLOW_ID_GLOSSARY),
+        configure_args.wake_interval = arg_llong0("w", NULL, TWT_WAKE_INTERVAL_DATATYPE,
+            TWT_WAKE_INTERVAL_GLOSSARY),
+        configure_args.wake_duration = arg_rint0("d", NULL, TWT_WAKE_DURATION_DATATYPE, 0,
+            TWT_WAKE_DURATION_MAX_US, TWT_WAKE_DURATION_GLOSSARY),
+        configure_args.setup_command = arg_rint0("c", NULL, TWT_SETUP_CMD_DATATYPE, 0,
+            TWT_MAX_SETUP_COMMAND_VAL, TWT_SETUP_CMD_GLOSSARY),
+        arg_rem(NULL, "1: suggest"),
+        arg_rem(NULL, "2: demand"),
+        arg_rem(NULL, "3: grouping"),
+        arg_rem(NULL, "4: accept"),
+        arg_rem(NULL, "5: alternate"),
+        arg_rem(NULL, "6: dictate"),
+        arg_rem(NULL, "7: reject"));
+
+    MM_INIT_ARGTABLE(&remove_cmd, "Remove TWT agreement",
+        remove_args.flow_id = arg_rint0("f", NULL, TWT_FLOW_ID_DATATYPE, 0, TWT_MAX_FLOW_ID_VAL,
+            TWT_FLOW_ID_GLOSSARY));
+
+    return 0;
 }
 
-static int twt_get_cmd(char str[])
+int twt_help(void)
+{
+    mm_help_argtable("twt conf", &configure);
+    mm_help_argtable("twt remove", &remove_cmd);
+    return 0;
+}
+
+static int twt_get_cmd(const char str[])
 {
     if (strcmp("conf", str) == 0) return TWT_CONF_SUBCMD_CONFIGURE;
-#if !defined(MORSE_CLIENT)
-    if (strcmp("install", str) == 0) return TWT_CONF_SUBCMD_FORCE_INSTALL_AGREEMENT;
     else if (strcmp("remove", str) == 0) return TWT_CONF_SUBCMD_REMOVE_AGREEMENT;
-    else if (strcmp("explicit", str) == 0) return TWT_CONF_SUBCMD_CONFIGURE_EXPLICIT;
-#endif
     else
     {
         return -1;
@@ -119,246 +145,120 @@ int twt(struct morsectrl *mors, int argc, char *argv[])
 {
     int cmd_id;
     int ret = -1;
-    int option;
+    int i;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
+    struct command_twt_req *twt_cmd = NULL;
     uint8_t flow_id = 0; /* flow id always set to 0 for now */
     uint32_t wake_duration_us = 0;
     uint64_t wake_interval_us = 0;
-    uint16_t wake_interval_mantissa = 0;
-    uint8_t wake_interval_exponent = 0;
     uint64_t target_wake_time = 0;
     uint8_t setup_cmd = 0;
-    uint32_t temp;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc < 3)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
-
-    cmd_id = twt_get_cmd(argv[1]);
-    if (cmd_id < 0)
-    {
-        mctrl_err("Invalid TWT command '%s'\n", argv[1]);
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
+    cmd_id = twt_get_cmd(args.command->sval[0]);
 
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
-
     if (!rsp_tbuff)
         goto exit;
 
-    argc -= 1;
-    argv += 1;
+    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*twt_cmd));
+    if (!cmd_tbuff)
+        goto exit;
 
+    twt_cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_twt_req);
     switch (cmd_id)
     {
         case TWT_CONF_SUBCMD_CONFIGURE:
-        case TWT_CONF_SUBCMD_CONFIGURE_EXPLICIT:
-        case TWT_CONF_SUBCMD_FORCE_INSTALL_AGREEMENT:
         {
-            struct command_twt_req *twt_conf = NULL;
-
-            cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*twt_conf));
-            if (!cmd_tbuff)
+            ret = mm_parse_argtable("twt conf", &configure, argc, argv);
+            if (ret != 0)
+            {
                 goto exit;
-
-            twt_conf = TBUFF_TO_CMD(cmd_tbuff, struct command_twt_req);
-
-            while ((option = getopt(argc, argv, "f:w:d:t:c:m:e:")) != -1)
+            }
+            if (configure_args.flow_id->count +
+                configure_args.setup_command->count +
+                configure_args.wake_duration->count +
+                configure_args.wake_interval->count == 0)
             {
-                switch (option)
-                {
-                    case 'f' :
-                        if (str_to_uint32_range(optarg, &temp, 0, TWT_MAX_FLOW_ID_VAL) < 0)
-                        {
-                            mctrl_err("Flow ID not valid\n");
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-                        flow_id = temp;
-                        break;
-                    case 'w' :
-                    {
-                        if (str_to_uint64(optarg, &wake_interval_us) < 0)
-                        {
-                            mctrl_err("Wake interval is not a valid uint64_t value\n");
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-
-                        break;
-                    }
-                    case 'd' :
-                        if (str_to_uint32_range(optarg, &wake_duration_us,
-                            0, TWT_WAKE_DURATION_MAX_US) < 0)
-                        {
-                            mctrl_err("Wake duration cannot exceed %u us\n",
-                                    TWT_WAKE_DURATION_MAX_US);
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-                        break;
-                    case 't':
-                    {
-                        if (str_to_uint64(optarg, &target_wake_time) < 0)
-                        {
-                            mctrl_err("Target Wake Time is not a valid uint64_t value\n");
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-                        break;
-                    }
-                    case 'c':
-                    {
-                        if (str_to_uint32_range(optarg, &temp, 0, TWT_MAX_SETUP_COMMAND_VAL) < 0)
-                        {
-                            mctrl_err("Setup command is not valid\n");
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-                        setup_cmd = temp;
-                        break;
-                    }
-                    case 'm':
-                    {
-                        if (str_to_uint16(optarg, &wake_interval_mantissa))
-                        {
-                            mctrl_err("Wake interval mantissa is not valid\n");
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-                        break;
-                    }
-                    case 'e':
-                    {
-                        if (str_to_uint8_range(optarg, &wake_interval_exponent, 0,
-                            TWT_WAKE_INTERVAL_EXPONENT_MAX_VAL) < 0)
-                        {
-                            mctrl_err("Wake interval exponent cannot exceed %u\n",
-                                TWT_WAKE_INTERVAL_EXPONENT_MAX_VAL);
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-                        break;
-                    }
-                    default :
-                    {
-                        mctrl_err("Invalid argument (%c)\n", option);
-                        usage(mors);
-                        ret = -1;
-                        goto exit;
-                    }
-                }
+                mctrl_print("At least one of -w, -d or -c is required\n");
+                ret = -1;
+                goto exit;
             }
 
-            twt_conf->flow_id = flow_id;
-            twt_conf->cmd = cmd_id;
-
-            if (cmd_id == TWT_CONF_SUBCMD_CONFIGURE_EXPLICIT)
+            if (configure_args.flow_id->count)
             {
-                /* Set here for logging later on */
-                wake_interval_us = wake_interval_mantissa * (1ULL << wake_interval_exponent);
-                twt_conf->set_twt_conf.explicit.wake_interval_exponent = wake_interval_exponent;
-                twt_conf->set_twt_conf.explicit.wake_interval_mantissa = wake_interval_mantissa;
+                flow_id = configure_args.flow_id->ival[0];
             }
-            else
+            if (configure_args.wake_interval->count)
             {
-                twt_conf->set_twt_conf.wake_interval_us = wake_interval_us;
+                wake_interval_us = configure_args.wake_interval->ival[0];
+            }
+            if (configure_args.wake_duration->count)
+            {
+                wake_duration_us = configure_args.wake_duration->ival[0];
+            }
+            if (configure_args.setup_command->count)
+            {
+                setup_cmd = configure_args.setup_command->ival[0];
             }
 
-            twt_conf->set_twt_conf.wake_duration_us = wake_duration_us;
-            twt_conf->set_twt_conf.twt_setup_command = setup_cmd;
-
-            if (cmd_id == TWT_CONF_SUBCMD_FORCE_INSTALL_AGREEMENT)
-                twt_conf->set_twt_conf.target_wake_time = target_wake_time;
+            twt_cmd->flow_id = flow_id;
+            twt_cmd->cmd = cmd_id;
+            twt_cmd->set_twt_conf.wake_interval_us = wake_interval_us;
+            twt_cmd->set_twt_conf.wake_duration_us = wake_duration_us;
+            twt_cmd->set_twt_conf.twt_setup_command = setup_cmd;
+            break;
         }
-        break;
         case TWT_CONF_SUBCMD_REMOVE_AGREEMENT:
         {
-            struct command_twt_req* remove = NULL;
-
-            cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*remove));
-
-            if (!cmd_tbuff)
-                goto exit;
-
-            remove = TBUFF_TO_CMD(cmd_tbuff, struct command_twt_req);
-
-            while ((option = getopt(argc, argv, "f:")) != -1)
+            ret = mm_parse_argtable("twt remove", &remove_cmd, argc, argv);
+            if (ret != 0)
             {
-                switch (option)
-                {
-                    case 'f' :
-                        if (str_to_uint32_range(optarg, &temp, 0, TWT_MAX_FLOW_ID_VAL) < 0)
-                        {
-                            mctrl_err("Flow ID not valid\n");
-                            usage(mors);
-                            ret = -1;
-                            goto exit;
-                        }
-                        flow_id = temp;
-                        break;
-                    default :
-                        mctrl_err("Invalid argument (%c)\n", option);
-                        usage(mors);
-                        ret = -1;
-                        goto exit;
-                }
+                goto exit;
             }
-
-            remove->flow_id = flow_id;
-            remove->cmd = cmd_id;
+            if (remove_args.flow_id->count)
+            {
+                flow_id = remove_args.flow_id->ival[0];
+            }
+            twt_cmd->flow_id = flow_id;
+            twt_cmd->cmd = cmd_id;
         }
         break;
-        default:
-        {
-            mctrl_err("Error: TWT command '%s'\n", argv[1]);
-            usage(mors);
-            ret = -1;
-            goto exit;
-        }
     }
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_TWT_SET_CONF, cmd_tbuff,
             rsp_tbuff);
 
 exit:
-    if (ret)
+    /* Check if the reason we got here is because --help was given */
+    if (mm_check_help_argtable(subcmds, MORSE_ARRAY_SIZE(subcmds)))
     {
-        mctrl_err("Command error (%d)\n", ret);
+        ret = 0;
     }
-    else if (cmd_id == TWT_CONF_SUBCMD_CONFIGURE ||
-        cmd_id == TWT_CONF_SUBCMD_CONFIGURE_EXPLICIT ||
-        cmd_id == TWT_CONF_SUBCMD_FORCE_INSTALL_AGREEMENT)
+    else if (ret == 0 &&
+             (cmd_id == TWT_CONF_SUBCMD_CONFIGURE ||
+              cmd_id == TWT_CONF_SUBCMD_CONFIGURE_EXPLICIT ||
+              cmd_id == TWT_CONF_SUBCMD_FORCE_INSTALL_AGREEMENT))
     {
-        mctrl_print("Installed TWT Agreement[flowid:%d]\n", flow_id);
-        mctrl_print("\tWake interval: %" PRId64 " us\n", wake_interval_us);
-        mctrl_print("\tWake duration: %d us\n", wake_duration_us);
-        mctrl_print("\tTarget Wake Time: %" PRId64 "\n", target_wake_time);
-        mctrl_print("\tImplict: true\n");
+        if (twt_cmd != NULL)
+        {
+            mctrl_print("Installed TWT Agreement[flowid:%d]\n", flow_id);
+            mctrl_print("    Wake interval: %" PRId64 " us\n",
+                wake_interval_us);
+            mctrl_print("    Wake duration: %d us\n", wake_duration_us);
+            mctrl_print("    Target Wake Time: %" PRId64 "\n",
+                target_wake_time);
+            mctrl_print("    Implict: true\n");
+        }
     }
     else if (cmd_id == TWT_CONF_SUBCMD_REMOVE_AGREEMENT)
     {
-        mctrl_print("Removed TWT Agreement[flowid:%d]\n", flow_id);
+        mctrl_print("Removed TWT Agreement[flowid:%d]\n", twt_cmd->flow_id);
+    }
+
+    if (ret)
+    {
+        mctrl_err("Command error (%d)\n", ret);
     }
 
     if (cmd_tbuff)
@@ -369,7 +269,12 @@ exit:
     {
         morsectrl_transport_buff_free(rsp_tbuff);
     }
+
+    for (i = 0; i < MORSE_ARRAY_SIZE(subcmds); i++)
+    {
+        mm_free_argtable(subcmds[i]);
+    }
     return ret;
 }
 
-MM_CLI_HANDLER(twt, MM_INTF_REQUIRED, MM_DIRECT_CHIP_NOT_SUPPORTED);
+MM_CLI_HANDLER_CUSTOM_HELP(twt, MM_INTF_REQUIRED, MM_DIRECT_CHIP_NOT_SUPPORTED);

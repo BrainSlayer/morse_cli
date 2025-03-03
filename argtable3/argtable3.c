@@ -102,7 +102,8 @@ enum {
     ARG_ERR_BADDATE,
     ARG_ERR_REGNOMATCH,
     ARG_ERR_NOTENOUGH,
-    ARG_ERR_TOOMANY
+    ARG_ERR_TOOMANY,
+    ARG_ERR_RANGE
 };
 
 typedef void(arg_panicfn)(const char* fmt, ...);
@@ -154,6 +155,7 @@ extern void* xcalloc(size_t count, size_t size);
 extern void* xrealloc(void* ptr, size_t size);
 extern void xfree(void* ptr);
 extern long int strtol0X(const char* str, const char** endptr, char X, int base);
+extern long long int strtoll0X(const char* str, const char** endptr, char X, int base);
 
 struct arg_hashtable_entry {
     void *k, *v;
@@ -531,6 +533,58 @@ long int strtol0X(const char* str, const char** endptr, char X, int base) {
 
     /* attempt conversion on remainder of string using strtol() */
     val = strtol(ptr, (char**)endptr, base);
+    if (*endptr == ptr) {
+        /* conversion failed */
+        *endptr = str;
+        return 0;
+    }
+
+    /* success */
+    return s * val;
+}
+
+long long int strtoll0X(const char* str, const char** endptr, char X, int base) {
+    long long int val;          /* stores result */
+    int s = 1;             /* sign is +1 or -1 */
+    const char* ptr = str; /* ptr to current position in str */
+
+    /* skip leading whitespace */
+    while (isspace((int)(*ptr)))
+        ptr++;
+    /* printf("1) %s\n",ptr); */
+
+    /* scan optional sign character */
+    switch (*ptr) {
+        case '+':
+            ptr++;
+            s = 1;
+            break;
+        case '-':
+            ptr++;
+            s = -1;
+            break;
+        default:
+            s = 1;
+            break;
+    }
+    /* printf("2) %s\n",ptr); */
+
+    /* '0X' prefix */
+    if ((*ptr++) != '0') {
+        /* printf("failed to detect '0'\n"); */
+        *endptr = str;
+        return 0;
+    }
+    /* printf("3) %s\n",ptr); */
+    if (toupper(*ptr++) != toupper(X)) {
+        /* printf("failed to detect '%c'\n",X); */
+        *endptr = str;
+        return 0;
+    }
+    /* printf("4) %s\n",ptr); */
+
+    /* attempt conversion on remainder of string using strtol() */
+    val = strtoll(ptr, (char**)endptr, base);
     if (*endptr == ptr) {
         /* conversion failed */
         *endptr = str;
@@ -3257,6 +3311,9 @@ static int arg_int_scanfn(struct arg_int* parent, const char* argval) {
         } else if (!detectsuffix(end, ""))
             errorcode = ARG_ERR_BADINT; /* invalid suffix detected */
 
+        if (val < parent->minval || val > parent->maxval)
+            errorcode = ARG_ERR_RANGE;
+
         /* if success then store result in parent->ival[] array */
         if (errorcode == 0)
             parent->ival[parent->count++] = (int)val;
@@ -3302,18 +3359,36 @@ static void arg_int_errorfn(struct arg_int* parent, arg_dstr_t ds, int errorcode
             arg_print_option_ds(ds, shortopts, longopts, datatype, " ");
             arg_dstr_catf(ds, "(%s is too large)\n", argval);
             break;
+
+        case ARG_ERR_RANGE:
+            arg_dstr_catf(ds, "integer %s out of range (%d-%d) for option ", argval, parent->minval, parent->maxval);
+            arg_print_option_ds(ds, shortopts, longopts, datatype, "\n");
+            break;
     }
 }
 
 struct arg_int* arg_int0(const char* shortopts, const char* longopts, const char* datatype, const char* glossary) {
-    return arg_intn(shortopts, longopts, datatype, 0, 1, glossary);
+    return arg_rintn(shortopts, longopts, datatype, 0, 1, INT_MIN, INT_MAX, glossary);
 }
 
 struct arg_int* arg_int1(const char* shortopts, const char* longopts, const char* datatype, const char* glossary) {
-    return arg_intn(shortopts, longopts, datatype, 1, 1, glossary);
+    return arg_rintn(shortopts, longopts, datatype, 1, 1, INT_MIN, INT_MAX, glossary);
 }
 
 struct arg_int* arg_intn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, const char* glossary) {
+    return arg_rintn(shortopts, longopts, datatype, mincount, maxcount, INT_MIN, INT_MAX, glossary);
+}
+
+
+struct arg_int *arg_rint0(const char* shortopts, const char* longopts, const char* datatype, int minval, int maxval, const char* glossary) {
+    return arg_rintn(shortopts, longopts, datatype, 0, 1, minval, maxval, glossary);
+}
+
+struct arg_int* arg_rint1(const char* shortopts, const char* longopts, const char* datatype, int minval, int maxval, const char* glossary) {
+    return arg_rintn(shortopts, longopts, datatype, 1, 1, minval, maxval, glossary);
+}
+
+struct arg_int* arg_rintn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, int minval, int maxval, const char* glossary) {
     size_t nbytes;
     struct arg_int* result;
 
@@ -3338,6 +3413,9 @@ struct arg_int* arg_intn(const char* shortopts, const char* longopts, const char
     result->hdr.scanfn = (arg_scanfn*)arg_int_scanfn;
     result->hdr.checkfn = (arg_checkfn*)arg_int_checkfn;
     result->hdr.errorfn = (arg_errorfn*)arg_int_errorfn;
+
+    result->minval = minval;
+    result->maxval = maxval;
 
     /* store the ival[maxcount] array immediately after the arg_int struct */
     result->ival = (int*)(result + 1);
@@ -3562,6 +3640,183 @@ struct arg_csi* arg_csin(const char* shortopts, const char* longopts, const char
     result->num_vals = num_vals;
 
     ARG_TRACE(("arg_csin() returns %p\n", result));
+    return result;
+}
+/*******************************************************************************
+ * arg_llong: Implements the long long int command-line option
+ *
+ * This file is part of the argtable3 library.
+ *
+ * Copyright (C) 1998-2001,2003-2011,2013 Stewart Heitmann
+ * <sheitmann@users.sourceforge.net>
+ * All rights reserved.
+ * Copyright 2024 Morse Micro
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of STEWART HEITMANN nor the  names of its contributors
+ *       may be used to endorse or promote products derived from this software
+ *       without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL STEWART HEITMANN BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGEg
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ******************************************************************************/
+
+#include "argtable3.h"
+
+#ifndef ARG_AMALGAMATION
+#include "argtable3_private.h"
+#endif
+
+#include <ctype.h>
+#include <limits.h>
+#include <stdlib.h>
+
+static void arg_llong_resetfn(struct arg_llong* parent) {
+    ARG_TRACE(("%s:resetfn(%p)\n", __FILE__, parent));
+    parent->count = 0;
+}
+
+static int arg_llong_scanfn(struct arg_llong* parent, const char* argval) {
+    int errorcode = 0;
+
+    if (parent->count == parent->hdr.maxcount) {
+        /* maximum number of arguments exceeded */
+        errorcode = ARG_ERR_MAXCOUNT;
+    } else if (!argval) {
+        /* a valid argument with no argument value was given. */
+        /* This happens when an optional argument value was invoked. */
+        /* leave parent arguiment value unaltered but still count the argument. */
+        parent->count++;
+    } else {
+        long long int val;
+        const char* end;
+
+        /* attempt to extract hex integer (eg: +0x123) from argval into val conversion */
+        val = strtoll0X(argval, &end, 'X', 16);
+        if (end == argval) {
+            /* hex failed, attempt octal conversion (eg +0o123) */
+            val = strtoll0X(argval, &end, 'O', 8);
+            if (end == argval) {
+                /* octal failed, attempt binary conversion (eg +0B101) */
+                val = strtoll0X(argval, &end, 'B', 2);
+                if (end == argval) {
+                    /* binary failed, attempt decimal conversion with no prefix (eg 1234) */
+                    val = strtoll(argval, (char**)&end, 10);
+                    if (end == argval) {
+                        /* all supported number formats failed */
+                        return ARG_ERR_BADINT;
+                    }
+                }
+            }
+        }
+
+        /* Check that strtoll consumed entire buffer (1.234 would leave end pointing to ".234") */
+        if (*end != '\0')
+        {
+            return ARG_ERR_BADINT;
+        }
+
+        /* if success then store result in parent->ival[] array */
+        if (errorcode == 0)
+            parent->ival[parent->count++] = (long long int)val;
+    }
+
+    /* printf("%s:scanfn(%p,%p) returns %d\n",__FILE__,parent,argval,errorcode); */
+    return errorcode;
+}
+
+static int arg_llong_checkfn(struct arg_llong* parent) {
+    int errorcode = (parent->count < parent->hdr.mincount) ? ARG_ERR_MINCOUNT : 0;
+    /*printf("%s:checkfn(%p) returns %d\n",__FILE__,parent,errorcode);*/
+    return errorcode;
+}
+
+static void arg_llong_errorfn(struct arg_llong* parent, arg_dstr_t ds, int errorcode, const char* argval, const char* progname) {
+    const char* shortopts = parent->hdr.shortopts;
+    const char* longopts = parent->hdr.longopts;
+    const char* datatype = parent->hdr.datatype;
+
+    /* make argval NULL safe */
+    argval = argval ? argval : "";
+
+    arg_dstr_catf(ds, "%s: ", progname);
+    switch (errorcode) {
+        case ARG_ERR_MINCOUNT:
+            arg_dstr_cat(ds, "missing option ");
+            arg_print_option_ds(ds, shortopts, longopts, datatype, "\n");
+            break;
+
+        case ARG_ERR_MAXCOUNT:
+            arg_dstr_cat(ds, "excess option ");
+            arg_print_option_ds(ds, shortopts, longopts, argval, "\n");
+            break;
+
+        case ARG_ERR_BADINT:
+            arg_dstr_catf(ds, "invalid argument \"%s\" to option ", argval);
+            arg_print_option_ds(ds, shortopts, longopts, datatype, "\n");
+            break;
+
+        case ARG_ERR_OVERFLOW:
+            arg_dstr_cat(ds, "integer overflow at option ");
+            arg_print_option_ds(ds, shortopts, longopts, datatype, " ");
+            arg_dstr_catf(ds, "(%s is too large)\n", argval);
+            break;
+    }
+}
+
+struct arg_llong* arg_llong0(const char* shortopts, const char* longopts, const char* datatype, const char* glossary) {
+    return arg_llongn(shortopts, longopts, datatype, 0, 1, glossary);
+}
+
+struct arg_llong* arg_llong1(const char* shortopts, const char* longopts, const char* datatype, const char* glossary) {
+    return arg_llongn(shortopts, longopts, datatype, 1, 1, glossary);
+}
+
+struct arg_llong* arg_llongn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, const char* glossary) {
+    size_t nbytes;
+    struct arg_llong* result;
+
+    /* foolproof things by ensuring maxcount is not less than mincount */
+    maxcount = (maxcount < mincount) ? mincount : maxcount;
+
+    nbytes = sizeof(struct arg_llong)    /* storage for struct arg_int */
+             + (size_t)maxcount * sizeof(long long int); /* storage for ival[maxcount] array */
+
+    result = (struct arg_llong*)xmalloc(nbytes);
+
+    /* init the arg_hdr struct */
+    result->hdr.flag = ARG_HASVALUE;
+    result->hdr.shortopts = shortopts;
+    result->hdr.longopts = longopts;
+    result->hdr.datatype = datatype ? datatype : "<int>";
+    result->hdr.glossary = glossary;
+    result->hdr.mincount = mincount;
+    result->hdr.maxcount = maxcount;
+    result->hdr.parent = result;
+    result->hdr.resetfn = (arg_resetfn*)arg_llong_resetfn;
+    result->hdr.scanfn = (arg_scanfn*)arg_llong_scanfn;
+    result->hdr.checkfn = (arg_checkfn*)arg_llong_checkfn;
+    result->hdr.errorfn = (arg_errorfn*)arg_llong_errorfn;
+
+    /* store the ival[maxcount] array immediately after the arg_int struct */
+    result->ival = (long long int*)(result + 1);
+    result->count = 0;
+
+    ARG_TRACE(("arg_llongn() returns %p\n", result));
     return result;
 }
 /*******************************************************************************
@@ -3939,7 +4194,7 @@ static void arg_rex_errorfn(struct arg_rex* parent, arg_dstr_t ds, int errorcode
             break;
 
         case ARG_ERR_REGNOMATCH:
-            arg_dstr_cat(ds, "illegal value  ");
+            arg_dstr_cat(ds, "illegal value ");
             arg_print_option_ds(ds, shortopts, longopts, argval, "\n");
             break;
 
@@ -5135,7 +5390,7 @@ void arg_make_get_help_msg(arg_dstr_t res) {
     arg_dstr_catf(res, "Please type '%s help' to get more information.\n", module_name());
 }
 
-void arg_make_help_msg(arg_dstr_t ds, char* cmd_name, void** argtable) {
+void arg_make_help_msg(arg_dstr_t ds, const char* cmd_name, void** argtable) {
     arg_cmd_info_t* cmd_info = (arg_cmd_info_t*)arg_hashtable_search(s_hashtable, cmd_name);
     if (cmd_info) {
         arg_dstr_catf(ds, "%s: %s\n", cmd_name, cmd_info->description);
@@ -5158,7 +5413,7 @@ void arg_make_syntax_err_msg(arg_dstr_t ds, void** argtable, struct arg_end* end
     arg_dstr_cat(ds, "\n");
 }
 
-int arg_make_syntax_err_help_msg(arg_dstr_t ds, char* name, int help, int nerrors, void** argtable, struct arg_end* end, int* exitcode) {
+int arg_make_syntax_err_help_msg(arg_dstr_t ds, const char* name, int help, int nerrors, void** argtable, struct arg_end* end, int* exitcode) {
     /* help handling
      * note: '-h|--help' takes precedence over error reporting
      */
@@ -5235,6 +5490,8 @@ int arg_make_syntax_err_help_msg(arg_dstr_t ds, char* name, int help, int nerror
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+
+enum getopt_shuffle_flags { GETOPT_SHUFFLE = 0, GETOPT_NOSHUFFLE = 1 };
 
 static void arg_register_error(struct arg_end* end, void* parent, int error, const char* argval) {
     /* printf("arg_register_error(%p,%p,%d,%s)\n",end,parent,error,argval); */
@@ -5365,7 +5622,7 @@ static struct longoptions* alloc_longoptions(struct arg_hdr** table) {
     return result;
 }
 
-static char* alloc_shortoptions(struct arg_hdr** table) {
+static char* alloc_shortoptions(struct arg_hdr** table, enum getopt_shuffle_flags shuffle) {
     char* result;
     size_t len = 2;
     int tabindex;
@@ -5380,8 +5637,11 @@ static char* alloc_shortoptions(struct arg_hdr** table) {
     result = xmalloc(len);
 
     res = result;
-    /* Add a leading + so getopt doesn't reorder argv */
-    *res++ = '+';
+    if (GETOPT_NOSHUFFLE == shuffle)
+    {
+        /* Add a leading + so getopt doesn't reorder argv */
+        *res++ = '+';
+    }
     /* add a leading ':' so getopt return codes distinguish    */
     /* unrecognised option and options missing argument values */
     *res++ = ':';
@@ -5412,7 +5672,7 @@ static int arg_endindex(struct arg_hdr** table) {
     return tabindex;
 }
 
-static void arg_parse_tagged(int argc, char** argv, struct arg_hdr** table, struct arg_end* endtable) {
+static void arg_parse_tagged(int argc, char** argv, struct arg_hdr** table, struct arg_end* endtable, enum getopt_shuffle_flags shuffle) {
     struct longoptions* longoptions;
     char* shortoptions;
     int copt;
@@ -5422,7 +5682,7 @@ static void arg_parse_tagged(int argc, char** argv, struct arg_hdr** table, stru
     /* allocate short and long option arrays for the given opttable[].   */
     /* if the allocs fail then put an error msg in the last table entry. */
     longoptions = alloc_longoptions(table);
-    shortoptions = alloc_shortoptions(table);
+    shortoptions = alloc_shortoptions(table, shuffle);
 
     /*dump_longoptions(longoptions);*/
 
@@ -5614,6 +5874,13 @@ static void arg_parse_untagged(int argc, char** argv, struct arg_hdr** table, st
             /*printf("arg_parse_untagged(): argtable[%d] failed match\n",tabindex);*/
             tabindex++;
 
+            /* if we got a range error in an untagged option, we should bail out immediately  */
+            /* since we don't want to try and scan this option against any other rules */
+            if (errorcode == ARG_ERR_RANGE)
+            {
+                arg_register_error(endtable, parent, errorcode, argv[optind]);
+                return;
+            }
             /* remember this as a tentative error we may wish to reinstate later */
             errorlast = errorcode;
             optarglast = argv[optind];
@@ -5700,14 +5967,14 @@ int arg_parse(int argc, char** argv, void** argtable) {
     argvcopy[argc] = NULL;
 
     /* parse the command line (local copy) for tagged options */
-    arg_parse_tagged(argc, argvcopy, table, endtable);
+    arg_parse_tagged(argc, argvcopy, table, endtable, GETOPT_NOSHUFFLE);
 
     int stop = arg_parse_find_stop(argc, argvcopy, table, endtable);
 
     arg_reset((void **)table);
 
     /* parse the command line (local copy) for tagged options */
-    arg_parse_tagged(stop, argvcopy, table, endtable);
+    arg_parse_tagged(stop, argvcopy, table, endtable, GETOPT_SHUFFLE);
     /* parse the command line (local copy) for untagged options */
     arg_parse_untagged(stop, argvcopy, table, endtable);
 
@@ -6012,9 +6279,12 @@ void arg_print_syntax_ds(arg_dstr_t ds, void** argtable, const char* suffix) {
 }
 
 void arg_print_syntax(FILE* fp, void** argtable, const char* suffix) {
+    const int lmargin = 12;
+    const int rmargin = 85;
+
     arg_dstr_t ds = arg_dstr_create();
     arg_print_syntax_ds(ds, argtable, suffix);
-    fputs(arg_dstr_cstr(ds), fp);
+    arg_print_formatted(fp, lmargin, rmargin, arg_dstr_cstr(ds));
     arg_dstr_destroy(ds);
 }
 
@@ -6088,7 +6358,17 @@ void arg_print_glossary_ds(arg_dstr_t ds, void** argtable, const char* format) {
             const char* datatype = table[tabindex]->datatype;
             const char* glossary = table[tabindex]->glossary;
             arg_cat_optionv(syntax, sizeof(syntax) - 1, shortopts, longopts, datatype, table[tabindex]->flag & ARG_HASOPTVALUE, ", ");
-            arg_dstr_catf(ds, format, syntax, glossary);
+            /* For long syntax lines that would cause the glossary to become unaligned.
+             * Prints the glossary on the line below with the correct alignment */
+            if (strlen(syntax) >= 38)
+            {
+                arg_dstr_catf(ds, "        %-40s\n", syntax);
+                arg_dstr_catf(ds, "        %-40s %s\n", "", glossary);
+            }
+            else
+            {
+                arg_dstr_catf(ds, format, syntax, glossary);
+            }
         }
     }
 }
@@ -6098,6 +6378,19 @@ void arg_print_glossary(FILE* fp, void** argtable, const char* format) {
     arg_print_glossary_ds(ds, argtable, format);
     fputs(arg_dstr_cstr(ds), fp);
     arg_dstr_destroy(ds);
+}
+
+static int bracket_depth(const char* text, int idx) {
+    int depth = 0;
+    for (int i = 0; i <= idx; i++) {
+        if (text[i] == '[' || text[i] == '(' || text[i] == '{' || text[i] == '<') {
+            depth++;
+        }
+        else if (text[i] == ']' || text[i] == ')' || text[i] == '}' || text[i] == '>') {
+            depth--;
+        }
+    }
+    return depth;
 }
 
 /**
@@ -6133,7 +6426,9 @@ static void arg_print_formatted_ds(arg_dstr_t ds, const unsigned lmargin, const 
         if (line_end - line_start > colwidth) {
             line_end = line_start + colwidth;
 
-            while ((line_end > line_start) && !isspace((int)(*(text + line_end)))) {
+            /* Search backwards from the end of the line until we reach a space character
+             * that isn't surrounded by any brackets */
+            while ((line_end > line_start) && (!isspace((int)(*(text + line_end))) || (bracket_depth(text, line_end) != 0))) {
                 line_end--;
             }
 

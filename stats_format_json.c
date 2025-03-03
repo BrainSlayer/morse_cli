@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <stdint.h>
@@ -140,8 +127,8 @@ static void print_pageset(const char *key, const uint8_t *buf, uint32_t len)
         indent_level++;
 
         printf_indent("\"Pageset\": %d,%s", i, terminator);
-        printf_indent("\"allocated\": %d,%s", pageset->pages_allocated[i], terminator);
-        printf_indent("\"total\": %d%s", pageset->pages_to_allocate[i], terminator);
+        printf_indent("\"Allocated\": %d,%s", pageset->pages_allocated[i], terminator);
+        printf_indent("\"Total\": %d%s", pageset->pages_to_allocate[i], terminator);
 
         indent_level--;
         printf_indent("}");
@@ -206,7 +193,7 @@ static void print_raw(const char *key, const uint8_t *buf, uint32_t len)
     }
     mctrl_print("\",%s", terminator);
 
-    printf_indent("\"Truncated by tbtt\": %ld,%s",
+    printf_indent("\"Truncated by TBTT\": %ld,%s",
         raw_stats->assignments_truncated_from_tbtt, terminator);
     printf_indent("\"Invalid\": %ld,%s", raw_stats->invalid_assignments, terminator);
     printf_indent("\"Already past\": %ld%s", raw_stats->already_past_assignment, terminator);
@@ -217,9 +204,9 @@ static void print_raw(const char *key, const uint8_t *buf, uint32_t len)
     printf_indent("{%s", terminator);
     indent_level++;
 
-    printf_indent("\"From aci queue\": %ld,%s", raw_stats->aci_frames_delayed, terminator);
-    printf_indent("\"From bc/mc queue\": %ld,%s", raw_stats->bc_mc_frames_delayed, terminator);
-    printf_indent("\"From abs time queue\": %ld,%s",
+    printf_indent("\"From ACI queue\": %ld,%s", raw_stats->aci_frames_delayed, terminator);
+    printf_indent("\"From BC/MC queue\": %ld,%s", raw_stats->bc_mc_frames_delayed, terminator);
+    printf_indent("\"From absolute time queue\": %ld,%s",
         raw_stats->abs_frames_delayed, terminator);
     printf_indent("\"Frame crosses slot\": %ld%s",
         raw_stats->frame_crosses_slot_delayed, terminator);
@@ -242,9 +229,8 @@ static void print_calibration(const char *key, const uint8_t *buf, uint32_t len)
     printf_indent("{%s", terminator);
     indent_level++;
 
-    printf_indent("\"Manged Calibration\": %s", terminator);
+    printf_indent("\"Managed calibration\": %s", terminator);
     printf_indent("{%s", terminator);
-    indent_level++;
 
     printf_indent("\"Quiet calibration granted\": %ld,%s",
             calib_stats->quiet_calibration_granted, terminator);
@@ -252,7 +238,7 @@ static void print_calibration(const char *key, const uint8_t *buf, uint32_t len)
             calib_stats->quiet_calibration_rejected, terminator);
     printf_indent("\"Quiet calibration cancelled\": %ld,%s",
             calib_stats->quiet_calibration_cancelled, terminator);
-    printf_indent("\"Non-Quiet calibration granted\": %ld,%s",
+    printf_indent("\"Non-quiet calibration granted\": %ld,%s",
             calib_stats->non_quiet_calibration_granted, terminator);
     printf_indent("\"Calibration complete\": %ld%s", calib_stats->calibration_complete,
             terminator);
@@ -275,20 +261,21 @@ static void print_duty_cycle(const char *key, const uint8_t *buf, uint32_t len)
     indent_level++;
 
     /* Duty Cycle Body*/
-    printf_indent("\"Duty Cycle Target (%%)\": %d.%02d,%s",
+    printf_indent("\"Duty Cycle Target (%c)\": %d.%02d,%s",
+                  '%',
                   duty_cycle_stats->target_duty_cycle / 100,
                   duty_cycle_stats->target_duty_cycle % 100,
                   terminator);
-    printf_indent("\"Duty Cycle TX On (us)\": %llu,%s",
+    printf_indent("\"Duty Cycle TX on (usec)\": %llu,%s",
                   duty_cycle_stats->total_t_air,
                   terminator);
-    printf_indent("\"Duty Cycle TX Off (Blocked) (us)\": %llu,%s",
+    printf_indent("\"Duty Cycle TX off (blocked) (usec)\": %llu,%s",
                   duty_cycle_stats->total_t_off,
                   terminator);
-    printf_indent("\"Duty Cycle Max toff (us)\": %llu,%s",
+    printf_indent("\"Duty Cycle max time off (usec)\": %llu,%s",
                   duty_cycle_stats->max_t_off,
                   terminator);
-    printf_indent("\"Duty Cycle Early Frames\": %u%s",
+    printf_indent("\"Duty Cycle early frames\": %u%s",
                   duty_cycle_stats->num_early,
                   terminator);
 
@@ -322,13 +309,13 @@ static void print_mac_state(const char *key, const uint8_t *buf, uint32_t len)
         BMGET(mac_state, ENCODE_MAC_STATE_DYN_PS_OFFLOAD_EN), terminator);
     printf_indent("\"%s\": %lld,%s", "STA PS state",
         BMGET(mac_state, ENCODE_MAC_STATE_STA_PS_STATE), terminator);
-    printf_indent("\"%s\": %lld,%s", "Is waiting on dynamic powersave timeout",
+    printf_indent("\"%s\": %lld,%s", "Waiting on dynamic powersave timeout",
         BMGET(mac_state, ENCODE_MAC_STATE_WAITING_ON_DYN_PS), terminator);
     printf_indent("\"%s\": %lld,%s", "TX blocked by host cmd",
         BMGET(mac_state, ENCODE_MAC_STATE_TX_BLOCKED), terminator);
-    printf_indent("\"%s\": %lld,%s", "Is waiting for medium sync",
+    printf_indent("\"%s\": %lld,%s", "Waiting for medium sync",
         BMGET(mac_state, ENCODE_MAC_STATE_WAITING_MED_SYNC), terminator);
-    printf_indent("\"%s\": %lld%s", "N packets in QoS queues",
+    printf_indent("\"%s\": %lld%s", "Packets in QoS queues",
         BMGET(mac_state, ENCODE_MAC_STATE_N_PKTS_IN_QUEUES), terminator);
 
     indent_level--;
@@ -337,6 +324,17 @@ static void print_mac_state(const char *key, const uint8_t *buf, uint32_t len)
 
 
 
+static void print_array(const char *key, const uint8_t *buf, uint32_t len)
+{
+    array_t *array = (array_t *)buf;
+    printf_indent("\"%s\": ", key);
+    mctrl_print("\"");
+    for (int i = 0; i < array->count; i++)
+    {
+        mctrl_print("%d ", array->array[i]);
+    }
+    mctrl_print("\"");
+}
 
 static void print_default(const char *key, const uint8_t *buf, uint32_t len)
 {
@@ -373,6 +371,7 @@ static const struct format_table table = {
         [MORSE_STATS_FMT_MAC_STATE] = print_mac_state,
         /* Add new function pointers here */
         /* [MORSE_STATS_NEW_TLV_FORMAT] = print_new_format */
+        [MORSE_STATS_FMT_ARRAY] = print_array,
 
         [MORSE_STATS_FMT_LAST] = print_default,
     }

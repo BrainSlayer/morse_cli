@@ -1,19 +1,6 @@
 /*
  * Copyright 2023 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -34,8 +21,10 @@ struct PACKED get_hw_version_response
     uint8_t hw_version[64];
 };
 
-static void usage(struct morsectrl *mors) {
-    mctrl_print("\thw_version\t\tprints hardware version\n");
+int hw_version_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Get the hardware version");
+    return 0;
 }
 
 int hw_version(struct morsectrl *mors, int argc, char *argv[])
@@ -45,12 +34,6 @@ int hw_version(struct morsectrl *mors, int argc, char *argv[])
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, 0);
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*hw_version));
 
@@ -58,14 +41,6 @@ int hw_version(struct morsectrl *mors, int argc, char *argv[])
         goto exit;
 
     hw_version = TBUFF_TO_RSP(rsp_tbuff, struct get_hw_version_response);
-
-    if (argc > 1)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_HW_VERSION,
                                  cmd_tbuff, rsp_tbuff);

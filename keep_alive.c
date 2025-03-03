@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -35,13 +22,19 @@ struct PACKED command_set_keep_alive_offload
     uint8_t interpret_as_11ah;
 };
 
-
-static void usage(struct morsectrl *mors)
+static struct
 {
-    mctrl_print("\tkeepalive <bss max idle period> [-a]\n");
-    mctrl_print("\t\t<bss max idle period>\tthe bss max idle period as seen in IE\n");
-    mctrl_print(
-        "\t\t[-a]                 \toptional, set to interpret idle period as per 11ah spec\n");
+    struct arg_int *idle_period;
+    struct arg_lit *dot11_spec;
+} args;
+
+int keepalive_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Set the BSS max idle period",
+        args.idle_period = arg_int1(NULL, NULL, "<period>",
+            "BSS idle period (1000 TUs) after which a keepalive will be sent"),
+        args.dot11_spec = arg_lit0("a", NULL, "Interpret idle period as per IEEE802.11ah spec"));
+    return 0;
 }
 
 int keepalive(struct morsectrl *mors, int argc, char *argv[])
@@ -50,20 +43,7 @@ int keepalive(struct morsectrl *mors, int argc, char *argv[])
     struct command_set_keep_alive_offload *cmd;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-    uint16_t bss_max_idle_period;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc < 2 || argc > 3)
-    {
-        mctrl_err("Invalid arguments\n");
-        usage(mors);
-        return -1;
-    }
+    uint16_t bss_max_idle_period = args.idle_period->ival[0];
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
@@ -73,28 +53,9 @@ int keepalive(struct morsectrl *mors, int argc, char *argv[])
 
     cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_set_keep_alive_offload);
 
-    cmd->interpret_as_11ah = false;
+    cmd->interpret_as_11ah = (args.dot11_spec->count > 0);
 
-    if (str_to_uint16(argv[1], &bss_max_idle_period))
-    {
-        mctrl_err("Invalid bss max idle period: %s\n", argv[1]);
-        ret = -1;
-        goto exit;
-    }
     cmd->bss_max_idle_period = htole16(bss_max_idle_period);
-
-    if (argc == 3)
-    {
-        if (strcmp(argv[2], "-a") != 0)
-        {
-            mctrl_err("Invalid argument: %s\n", argv[2]);
-            usage(mors);
-            ret = -1;
-            goto exit;
-        }
-
-        cmd->interpret_as_11ah = true;
-    }
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_KEEP_ALIVE_OFFLOAD,
         cmd_tbuff, rsp_tbuff);

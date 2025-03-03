@@ -125,8 +125,16 @@ typedef struct arg_lit {
 typedef struct arg_int {
     struct arg_hdr hdr; /* The mandatory argtable header struct */
     int count;          /* Number of matching command line args */
+    int minval;
+    int maxval;
     int* ival;          /* Array of parsed argument values */
 } arg_int_t;
+
+typedef struct arg_llong {
+    struct arg_hdr hdr;
+    int count;
+    long long int* ival;
+} arg_llong_t;
 
 /* Comma-separated integers, e.g. 1,2,3,4  */
 typedef struct arg_csi {
@@ -195,6 +203,13 @@ ARG_EXTERN struct arg_lit* arg_litn(const char* shortopts, const char* longopts,
 ARG_EXTERN struct arg_int* arg_int0(const char* shortopts, const char* longopts, const char* datatype, const char* glossary);
 ARG_EXTERN struct arg_int* arg_int1(const char* shortopts, const char* longopts, const char* datatype, const char* glossary);
 ARG_EXTERN struct arg_int* arg_intn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, const char* glossary);
+ARG_EXTERN struct arg_int* arg_rint0(const char* shortopts, const char* longopts, const char* datatype, int minval, int maxval, const char* glossary);
+ARG_EXTERN struct arg_int* arg_rint1(const char* shortopts, const char* longopts, const char* datatype, int minval, int maxval, const char* glossary);
+ARG_EXTERN struct arg_int* arg_rintn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, int minval, int maxval, const char* glossary);
+
+ARG_EXTERN struct arg_llong* arg_llong0(const char* shortopts, const char* longopts, const char* datatype, const char* glossary);
+ARG_EXTERN struct arg_llong* arg_llong1(const char* shortopts, const char* longopts, const char* datatype, const char* glossary);
+ARG_EXTERN struct arg_llong* arg_llongn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, const char* glossary);
 
 /* Comma-separated integers, e.g. 1,2,3,4  */
 ARG_EXTERN struct arg_csi* arg_csi0(const char* shortopts, const char* longopts, const char* datatype, int num_args, const char* glossary);
@@ -277,9 +292,9 @@ ARG_EXTERN arg_cmd_info_t* arg_cmd_itr_value(arg_cmd_itr_t itr);
 ARG_EXTERN int arg_cmd_itr_search(arg_cmd_itr_t itr, void* k);
 ARG_EXTERN void arg_mgsort(void* data, int size, int esize, int i, int k, arg_comparefn* comparefn);
 ARG_EXTERN void arg_make_get_help_msg(arg_dstr_t res);
-ARG_EXTERN void arg_make_help_msg(arg_dstr_t ds, char* cmd_name, void** argtable);
+ARG_EXTERN void arg_make_help_msg(arg_dstr_t ds, const char* cmd_name, void** argtable);
 ARG_EXTERN void arg_make_syntax_err_msg(arg_dstr_t ds, void** argtable, struct arg_end* end);
-ARG_EXTERN int arg_make_syntax_err_help_msg(arg_dstr_t ds, char* name, int help, int nerrors, void** argtable, struct arg_end* end, int* exitcode);
+ARG_EXTERN int arg_make_syntax_err_help_msg(arg_dstr_t ds, const char* name, int help, int nerrors, void** argtable, struct arg_end* end, int* exitcode);
 ARG_EXTERN void arg_set_module_name(const char* name);
 ARG_EXTERN void arg_set_module_version(int major, int minor, int patch, const char* tag);
 

@@ -1,29 +1,17 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <stdio.h>
 
 #include "command.h"
 
-static void usage(struct morsectrl *mors)
+
+int coredump_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    mctrl_print("\tcoredump\t\tgenerates a FW coredump through the driver\n"
-           "\t\t\t\twith pattern /var/log/mmcd_hostname_ip_date/\n");
+    MM_INIT_ARGTABLE(mm_args, "Generate a FW coredump at: /var/log/mmcd_<hostname>_<ip>_<date>/)");
+    return 0;
 }
 
 int coredump(struct morsectrl *mors, int argc, char *argv[])
@@ -31,19 +19,6 @@ int coredump(struct morsectrl *mors, int argc, char *argv[])
     int ret = -1;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc != 1)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        return -1;
-    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, 0);
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);

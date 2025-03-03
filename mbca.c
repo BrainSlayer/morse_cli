@@ -1,19 +1,6 @@
 /*
  * Copyright 2023 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 #include <string.h>
 #include <stdio.h>
@@ -52,24 +39,37 @@ struct PACKED command_set_mbca_conf {
     uint16_t tbtt_adj_interval_ms;
 };
 
-static void usage(struct morsectrl *mors)
+static struct {
+    struct arg_int *mbca_config;
+    struct arg_int *scan_duration;
+    struct arg_int *beacon_interval;
+    struct arg_int *beacon_gap;
+    struct arg_int *tbtt_int;
+} args;
+
+int mbca_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-    mctrl_print(
-        "\tmbca -m <mbca config> -s <initial scan duration> -r <beacon timing report int> "
-        "-g <min beacon gap> -i <tbtt adj int>\n");
-    mctrl_print("\t\tconfigure Mesh beacon collision avoidance\n");
-    mctrl_print("\t\tdo not use - for internal use by wpa_supplicant\n");
-    mctrl_print("\t\t-m <value>\t1: To enable TBTT selection, 3: To enable TBTT selection and ");
-    mctrl_print("adjustment\n");
-    mctrl_print("\t\t-s <value>\tInitial scan duration in msecs to find peers. min:%u, max:%u\n",
-        MBSS_SCAN_DURATION_MIN, MBSS_SCAN_DURATION_MAX);
-    mctrl_print("\t\t-r <value>\tBeacon Timing Report interval. min:%u, max:%u\n",
-        BEACON_TIMING_REP_INT_MIN, BEACON_TIMING_REP_INT_MAX);
-    mctrl_print("\t\t-g <value>\tMinimum gap in msecs between our and neighbor's beacons. min:%u, ",
-        MIN_BEACON_GAP_MIN);
-    mctrl_print("max:%u\n", MIN_BEACON_GAP_MAX);
-    mctrl_print("\t\t-i <value>\tTBTT adjustment timer interval in secs. min:%u, max:%u\n",
-        TBTT_ADJ_INT_MIN, TBTT_ADJ_INT_MAX);
+    MM_INIT_ARGTABLE(mm_args,
+    "Configure Mesh beacon collision avoidance (do not use - for internal use by wpa_supplicant)",
+    args.mbca_config = arg_rint1("m", NULL, "<MBCA config>", MBCA_CONFIG_MIN, MBCA_CONFIG_MAX,
+        "1: enable TBTT selection, 3: enable TBTT selection and adjustment"),
+    args.scan_duration = arg_rint1("s", NULL, "<scan duration>",
+        MBSS_SCAN_DURATION_MIN, MBSS_SCAN_DURATION_MAX,
+        "Initial scan duration in msecs to find peers ("
+        STR(MBSS_SCAN_DURATION_MIN) "-" STR(MBSS_SCAN_DURATION_MAX) ")"),
+    args.beacon_interval = arg_rint1("r", NULL, "<interval>",
+        BEACON_TIMING_REP_INT_MIN, BEACON_TIMING_REP_INT_MAX,
+        "Beacon Timing Report interval ("
+        STR(BEACON_TIMING_REP_INT_MIN) "-" STR(BEACON_TIMING_REP_INT_MAX) ")"),
+    args.beacon_gap = arg_rint1("g", NULL, "<min beacon gap>",
+        MIN_BEACON_GAP_MIN, MIN_BEACON_GAP_MAX,
+        "Minimum gap in msecs between our and neighbor's beacons ("
+        STR(MIN_BEACON_GAP_MIN) "-" STR(MIN_BEACON_GAP_MAX) ")"),
+    args.tbtt_int = arg_rint1("i", NULL, "<interval>",
+        TBTT_ADJ_INT_MIN, TBTT_ADJ_INT_MAX,
+        "TBTT adjustment timer interval in secs ("
+        STR(TBTT_ADJ_INT_MIN) "-" STR(TBTT_ADJ_INT_MAX) ")"));
+    return 0;
 }
 
 int mbca(struct morsectrl *mors, int argc, char *argv[])
@@ -78,23 +78,6 @@ int mbca(struct morsectrl *mors, int argc, char *argv[])
     struct command_set_mbca_conf *mbca_req = NULL;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
-    uint8_t temp;
-    uint16_t temp_short;
-    int option;
-
-    if (argc == 0)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    if (argc != 11)
-    {
-        mctrl_err("Insufficient command parameters\n");
-        usage(mors);
-        ret = -1;
-        goto exit;
-    }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*mbca_req));
     if (!cmd_tbuff)
@@ -111,75 +94,11 @@ int mbca(struct morsectrl *mors, int argc, char *argv[])
     mbca_req = TBUFF_TO_CMD(cmd_tbuff, struct command_set_mbca_conf);
     memset(mbca_req, 0, sizeof(*mbca_req));
 
-    while ((option = getopt(argc, argv, "m:s:r:g:i:")) != -1)
-    {
-        switch (option) {
-        case 'm':
-            if (str_to_uint8_range(optarg, &temp, MBCA_CONFIG_MIN, MBCA_CONFIG_MAX) < 0)
-            {
-                mctrl_err("MBCA Config not a valid uint8_t value\n");
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            mbca_req->mbca_config = temp;
-            break;
-        case 's':
-            if (str_to_uint16_range(optarg, &temp_short, MBSS_SCAN_DURATION_MIN,
-                MBSS_SCAN_DURATION_MAX) < 0)
-            {
-                mctrl_err("MBSS start scan duration %u must be within the range min %u :"
-                    " max %u \n", temp_short, MBSS_SCAN_DURATION_MIN, MBSS_SCAN_DURATION_MAX);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            mbca_req->mbss_start_scan_duration_ms = temp_short;
-            break;
-        case 'r':
-            if (str_to_uint8_range(optarg, &temp, BEACON_TIMING_REP_INT_MIN,
-                BEACON_TIMING_REP_INT_MAX) < 0)
-            {
-                mctrl_err("Beacon Timing Report Interval %u must be within the range min %u : "
-                    "max %u \n", temp, BEACON_TIMING_REP_INT_MIN, BEACON_TIMING_REP_INT_MAX);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            mbca_req->beacon_timing_report_interval = temp;
-            break;
-        case 'g':
-            if (str_to_uint8_range(optarg, &temp, MIN_BEACON_GAP_MIN, MIN_BEACON_GAP_MAX) < 0)
-            {
-                mctrl_err("Min Beacon Gap %d must be within the range min %u : max %u \n", temp,
-                    MIN_BEACON_GAP_MIN, MIN_BEACON_GAP_MAX);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            mbca_req->min_beacon_gap_ms = temp;
-            break;
-        case 'i':
-            if (str_to_uint8_range(optarg, &temp, TBTT_ADJ_INT_MIN, TBTT_ADJ_INT_MAX) < 0)
-            {
-                mctrl_err("TBTT adjustment interval %d must be within the range min %u : max %u \n"
-                    , temp, TBTT_ADJ_INT_MIN, TBTT_ADJ_INT_MAX);
-                usage(mors);
-                ret = -1;
-                goto exit;
-            }
-            mbca_req->tbtt_adj_interval_ms = SECS_TO_MSECS(temp);
-            break;
-        case '?' :
-            usage(mors);
-            goto exit;
-        default:
-            mctrl_err("Invalid argument\n");
-            usage(mors);
-            ret = -1;
-            goto exit;
-        }
-    }
+    mbca_req->mbca_config = args.mbca_config->ival[0];
+    mbca_req->mbss_start_scan_duration_ms = args.scan_duration->ival[0];
+    mbca_req->beacon_timing_report_interval = args.beacon_interval->ival[0];
+    mbca_req->min_beacon_gap_ms = args.beacon_gap->ival[0];
+    mbca_req->tbtt_adj_interval_ms = SECS_TO_MSECS(args.tbtt_int->ival[0]);
 
     ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_MBCA_SET_CONF, cmd_tbuff,
             rsp_tbuff);

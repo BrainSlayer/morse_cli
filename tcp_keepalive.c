@@ -1,19 +1,6 @@
 /*
  * Copyright 2024 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <errno.h>
@@ -73,22 +60,22 @@ static struct
 int tcp_keepalive_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args, "Configure TCP keepalive offload parameters",
-        args.period_s = arg_int0("p", NULL, "<period>",
-            "Period in seconds - range 1-65535"),
-        args.retry_count = arg_int0("c", NULL, "<retry count>",
-            "Number of retries - range 0-255"),
-        args.retry_interval_s = arg_int0("i", NULL, "<retry interval>",
-            "Seconds between retries - range 1-255"),
+        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
+            "Enable/disable TCP keepalive offload"),
+        args.period_s = arg_rint0("p", NULL, "<period>", 1, TCP_KEEPALIVE_PARAM_PERIOD_MAX,
+            "Period in seconds (1-65535)"),
+        args.retry_count = arg_rint0("c", NULL, "<retry count>",
+            0, TCP_KEEPALIVE_PARAM_RETRY_COUNT_MAX, "Number of retries (0-255)"),
+        args.retry_interval_s = arg_rint0("i", NULL, "<retry interval>",
+            0, TCP_KEEPALIVE_PARAM_RETRY_INTERVAL_MAX, "Seconds between retries (1-255)"),
         args.src_ip = arg_str0("s", NULL, "<src IP>",
             "Source IP address in dotted decimal notation"),
         args.dest_ip = arg_str0("d", NULL, "<dest IP>",
             "Destination IP address in dotted decimal notation"),
-        args.src_port = arg_int0("S", NULL, "<src port>",
-            "TCP source port - range 1-65535"),
-        args.dest_port = arg_int0("D", NULL, "<dest port>",
-            "TCP destination port - range 1-65535"),
-        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
-            "enable/disable TCP keepalive offload"));
+        args.src_port = arg_rint0("S", NULL, "<src port>", 1, TCP_KEEPALIVE_PARAM_PORT_MAX,
+            "TCP source port (1-65535)"),
+        args.dest_port = arg_rint0("D", NULL, "<dest port>", 1, TCP_KEEPALIVE_PARAM_PORT_MAX,
+            "TCP destination port (1-65535)"));
     return 0;
 }
 
@@ -141,35 +128,18 @@ int tcp_keepalive(struct morsectrl *mors, int argc, char *argv[])
 
     if (args.period_s->count)
     {
-        if (args.period_s->ival[0] < 1 || args.period_s->ival[0] > TCP_KEEPALIVE_PARAM_PERIOD_MAX)
-        {
-            mctrl_err("Invalid period %d\n", args.period_s->ival[0]);
-            goto exit;
-        }
         cmd->period_s = htole16(args.period_s->ival[0]);
         cmd->set_cfgs |= TCP_KEEPALIVE_SET_CFG_PERIOD;
     }
 
     if (args.retry_count->count)
     {
-        if (args.retry_count->ival[0] < 0 ||
-                        args.retry_count->ival[0] > TCP_KEEPALIVE_PARAM_RETRY_COUNT_MAX)
-        {
-            mctrl_err("Invalid retry count %d\n", args.retry_count->ival[0]);
-            goto exit;
-        }
         cmd->retry_count = args.retry_count->ival[0];
         cmd->set_cfgs |= TCP_KEEPALIVE_SET_CFG_RETRY_COUNT;
     }
 
     if (args.retry_interval_s->count)
     {
-        if (args.retry_interval_s->ival[0] < 1 ||
-                        args.retry_interval_s->ival[0] > TCP_KEEPALIVE_PARAM_RETRY_INTERVAL_MAX)
-        {
-            mctrl_err("Invalid retry interval %d\n", args.retry_interval_s->ival[0]);
-            goto exit;
-        }
         cmd->retry_interval_s = args.retry_interval_s->ival[0];
         cmd->set_cfgs |= TCP_KEEPALIVE_SET_CFG_RETRY_INTERVAL;
     }
@@ -196,22 +166,12 @@ int tcp_keepalive(struct morsectrl *mors, int argc, char *argv[])
 
     if (args.src_port->count)
     {
-        if (args.src_port->ival[0] > TCP_KEEPALIVE_PARAM_PORT_MAX)
-        {
-            mctrl_err("Invalid source port %d\n", args.src_port->ival[0]);
-            goto exit;
-        }
         cmd->src_port = htobe16(args.src_port->ival[0]);
         cmd->set_cfgs |= TCP_KEEPALIVE_SET_CFG_SRC_PORT;
     }
 
     if (args.dest_port->count)
     {
-        if (args.dest_port->ival[0] > TCP_KEEPALIVE_PARAM_PORT_MAX)
-        {
-            mctrl_err("Invalid destination port %d\n", args.dest_port->ival[0]);
-            goto exit;
-        }
         cmd->dest_port = htobe16(args.dest_port->ival[0]);
         cmd->set_cfgs |= TCP_KEEPALIVE_SET_CFG_DEST_PORT;
     }

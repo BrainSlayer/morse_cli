@@ -1,19 +1,6 @@
 /*
  * Copyright 2021 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #pragma once
@@ -61,8 +48,12 @@
 #define NSS_TO_NSS_IDX(x) ((x) - 1)
 
 /* Bitmap utilities */
-#define BMGET(_v, _f)     (((_v) & (_f)) >> ctz(_f))
-#define BMSET(_v, _f)     (((_v) << ctz(_f)) & (_f))
+/* Extract the value of _fld from _var and return the result  */
+#define BMGET(_var, _fld)       (((_var) & (_fld)) >> ctz(_fld))
+/* Shift the _var bits to the _fld position and return the result */
+#define BMSET(_var, _fld)       (((_var) << ctz(_fld)) & (_fld))
+/* Replace the _fld bits of _var with _val */
+#define BMUPD(_var, _fld, _val) (((_var) & (~_fld)) | ((_val) << ctz(_fld)))
 
 #define MORSE_IS_BIT_SET(_field, _bit) (!!((_field) & BIT(_bit)))
 
@@ -134,7 +125,7 @@ bool check_string_is_int(const char *str);
  *
  * @return 0 if successful conversion, -1 otherwise
  */
-int str_to_int32(char str[], int32_t *val);
+int str_to_int32(const char str[], int32_t *val);
 
 /**
  *  Converts dec/hex uint string to uint32 variable
@@ -156,7 +147,7 @@ int str_to_uint32(const char str[], uint32_t *val);
  *
  * @return 0 if successful conversion, -1 otherwise
  */
-int str_to_uint16(char *str, uint16_t *val);
+int str_to_uint16(const char *str, uint16_t *val);
 
 /**
  *  Converts dec/hex int string to int8 variable
@@ -168,7 +159,7 @@ int str_to_uint16(char *str, uint16_t *val);
  *
  * @return 0 if successful conversion, -1 otherwise
  */
-int str_to_int8(char *str, int8_t *val);
+int str_to_int8(const char *str, int8_t *val);
 
 /**
  *  Converts dec/hex int string to uint8 variable
@@ -180,7 +171,7 @@ int str_to_int8(char *str, int8_t *val);
  *
  * @return 0 if successful conversion, -1 otherwise
  */
-int str_to_uint8(char *str, uint8_t *val);
+int str_to_uint8(const char *str, uint8_t *val);
 
 /**
  *  Converts dec/hex uint string to int32 variable within the min and max
@@ -267,6 +258,17 @@ int str_to_uint64(const char *str, uint64_t *val);
  * Returns: 0 on success, -1 on failure (invalid hex string)
  */
 int hexstr2bin(const char *hex, uint8_t *buf, size_t len);
+
+/**
+ * Convert an ASCII hex string into an array of uint32s.
+ * Converts from host to little endian internally
+ * @hex: ASCII hex string (e.g., "01abba10") (null terminated)
+ * @buf: Buffer for the binary data
+ * @len: Length of the text to convert in elements (of buf); hex will be 8 times
+ * this size
+ * Returns: 0 on success, -1 on failure (invalid hex string)
+ */
+int hexstr2uint32_arr(const char *hex, uint32_t *buf, size_t len);
 
 /**
  *  Converts any uppercase characters in a given string to lowercases

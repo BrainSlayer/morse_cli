@@ -1,19 +1,6 @@
 /*
  * Copyright 2020 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #pragma once
@@ -105,6 +92,7 @@ enum morse_commands_id
     MORSE_COMMAND_SET_WHITELIST = 0x0045,
     MORSE_COMMAND_ARP_PERIODIC_REFRESH = 0x0046,
     MORSE_COMMAND_SET_TCP_KEEPALIVE = 0x00047,
+    MORSE_COMMAND_FORCE_POWER_MODE = 0x00048,
 
     MORSE_COMMAND_MAC_STATS_LOG_DEPRECATED = 0x000C,
     MORSE_COMMAND_MAC_STATS_LOG = 0x200C,
@@ -129,7 +117,7 @@ enum morse_commands_id
     MORSE_COMMAND_GET_AVAILABLE_CHANNELS = 0xA011,
     MORSE_COMMAND_SET_ECSA_S1G_INFO = 0xA012,
     MORSE_COMMAND_GET_HW_VERSION = 0xA013,
-    MORSE_COMMAND_CAC_SET = 0xA014,
+    MORSE_COMMAND_CAC = 0xA014,
     MORSE_COMMAND_DRIVER_SET_DUTY_CYCLE = 0xA015,
     MORSE_COMMAND_MBSSID_INFO = 0xA016,
     MORSE_COMMAND_MESH_CONFIG = 0xA018,

@@ -1,19 +1,6 @@
 /*
  * Copyright 2022 Morse Micro
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <https://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
 #include <stdio.h>
@@ -28,12 +15,17 @@ struct PACKED set_long_sleep_config_command
     uint8_t long_sleep_enabled;
 };
 
-
-static void usage(struct morsectrl *mors)
+struct
 {
-    mctrl_print("\tlong_sleep [enable|disable]\n");
-    mctrl_print("\t\t\t\t'enable' will enable long sleep (allow sleeping through DTIM)\n");
-    mctrl_print("\t\t\t\t'disable' will disable long sleep\n");
+    struct arg_rex *enable;
+} args;
+
+int long_sleep_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+    MM_INIT_ARGTABLE(mm_args, "Configure long sleep mode (allow sleeping through DTIM)",
+        args.enable = arg_rex1(NULL, NULL, "(enable|disable)", "{enable|disable}", 0,
+            "Enable/disable long sleep mode"));
+    return 0;
 }
 
 
@@ -45,20 +37,7 @@ int long_sleep(struct morsectrl *mors, int argc, char *argv[])
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    if (argc < 2)
-    {
-        usage(mors);
-        return 0;
-    }
-
-    enabled = expression_to_int(argv[1]);
-
-    if (enabled == -1)
-    {
-        mctrl_err("Invalid command parameters\n");
-        usage(mors);
-        return -1;
-    }
+    enabled = expression_to_int(args.enable->sval[0]);
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
