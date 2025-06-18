@@ -22,23 +22,6 @@
 #define MBSS_SCAN_DURATION_MIN 2048
 #define MBSS_SCAN_DURATION_MAX 10240
 
-struct PACKED command_set_mbca_conf {
-    /** Configuration to enable or disable MBCA TBTT Selection and Adjustment */
-    uint8_t mbca_config;
-
-    /** Beacon Timing Element Report interval */
-    uint8_t beacon_timing_report_interval;
-
-    /** Minimum gap between our beacon and neighbor beacons */
-    uint8_t min_beacon_gap_ms;
-
-     /** Initial scan duration to find neighbor mesh peers in the MBSS */
-    uint16_t mbss_start_scan_duration_ms;
-
-    /** TBTT adjustment timer interval in LMAC firmware */
-    uint16_t tbtt_adj_interval_ms;
-};
-
 static struct {
     struct arg_int *mbca_config;
     struct arg_int *scan_duration;
@@ -75,12 +58,12 @@ int mbca_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 int mbca(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
-    struct command_set_mbca_conf *mbca_req = NULL;
-    struct morsectrl_transport_buff *cmd_tbuff = NULL;
+    struct morse_cmd_req_set_mcba_conf *mbca_req = NULL;
+    struct morsectrl_transport_buff *req_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*mbca_req));
-    if (!cmd_tbuff)
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*mbca_req));
+    if (!req_tbuff)
     {
         goto exit;
     }
@@ -91,22 +74,22 @@ int mbca(struct morsectrl *mors, int argc, char *argv[])
         goto exit;
     }
 
-    mbca_req = TBUFF_TO_CMD(cmd_tbuff, struct command_set_mbca_conf);
+    mbca_req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_mcba_conf);
     memset(mbca_req, 0, sizeof(*mbca_req));
 
     mbca_req->mbca_config = args.mbca_config->ival[0];
-    mbca_req->mbss_start_scan_duration_ms = args.scan_duration->ival[0];
+    mbca_req->mbss_start_scan_duration_ms = htole16(args.scan_duration->ival[0]);
     mbca_req->beacon_timing_report_interval = args.beacon_interval->ival[0];
     mbca_req->min_beacon_gap_ms = args.beacon_gap->ival[0];
-    mbca_req->tbtt_adj_interval_ms = SECS_TO_MSECS(args.tbtt_int->ival[0]);
+    mbca_req->tbtt_adj_interval_ms = htole16(SECS_TO_MSECS(args.tbtt_int->ival[0]));
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_MBCA_SET_CONF, cmd_tbuff,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_MCBA_CONF, req_tbuff,
             rsp_tbuff);
 
 exit:
-    if (cmd_tbuff)
+    if (req_tbuff)
     {
-        morsectrl_transport_buff_free(cmd_tbuff);
+        morsectrl_transport_buff_free(req_tbuff);
     }
 
     if (rsp_tbuff)

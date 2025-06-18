@@ -234,11 +234,11 @@ int hexstr2bin(const char *hex, uint8_t *buf, size_t len)
     return 0;
 }
 
-int hexstr2uint32_arr(const char *hex, uint32_t *buf, size_t len)
+int hexstr2uint32_arr(const char *hex, __le32 *buf, size_t len)
 {
     size_t i, j;
     const char *ipos = hex;
-    uint32_t *opos = buf;
+    __le32 *opos = buf;
     int a = 0, tmp;
 
     if (strlen(hex) != 8 * len)
@@ -359,7 +359,6 @@ uint16_t crc16_gen(uint8_t *buff, size_t len)
 {
     int ii, jj;
     uint32_t crc = 0;
-    uint32_t round = 0;
     size_t bit_count = len * 8;
 
     for (ii = 0; ii < len; ii ++)
@@ -372,7 +371,6 @@ uint16_t crc16_gen(uint8_t *buff, size_t len)
             crc ^= ((val << 4) | (val << 11));
             crc = (crc << 1) | val;
             bit_count -= 1;
-            round += 1;
             if (bit_count == 0)
                 break;
         }

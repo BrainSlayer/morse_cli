@@ -10,11 +10,6 @@
 #include "command.h"
 #include "utilities.h"
 
-struct PACKED set_long_sleep_config_command
-{
-    uint8_t long_sleep_enabled;
-};
-
 struct
 {
     struct arg_rex *enable;
@@ -33,26 +28,26 @@ int long_sleep(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     int enabled;
-    struct set_long_sleep_config_command *cmd;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_set_long_sleep_config *req;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
     enabled = expression_to_int(args.enable->sval[0]);
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_long_sleep_config_command);
-    cmd->long_sleep_enabled = enabled;
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_long_sleep_config);
+    req->enabled = enabled;
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_LONG_SLEEP_CONFIG,
-                                 cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_LONG_SLEEP_CONFIG,
+                                 req_tbuff, rsp_tbuff);
 
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

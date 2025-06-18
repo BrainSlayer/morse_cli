@@ -7,8 +7,22 @@
 
 #include <stdint.h>
 
-typedef uint16_t be16_t;
-typedef uint32_t be32_t;
+/* @MORSE_INTERNAL_NOT_PACKAGED_STOP */
+
+/* These are included in linux/types.h through nl80211.h and are missing elsewhere */
+#if !defined(__linux__) && !defined(__CYGWIN__)
+typedef uint16_t __le16;
+typedef uint16_t __be16;
+typedef uint32_t __le32;
+typedef uint32_t __be32;
+typedef uint64_t __le64;
+typedef uint64_t __be64;
+#endif
+
+#define __force
+#define __sle16 __le16
+#define __sle32 __le32
+#define __sle64 __le64
 
 #if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) && !defined(__WINDOWS__)
 
@@ -17,7 +31,7 @@ typedef uint32_t be32_t;
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)
-
+#include <linux/types.h>
 #include <endian.h>
 
 #elif defined(__APPLE__)
@@ -45,7 +59,6 @@ typedef uint32_t be32_t;
 #define __PDP_ENDIAN    PDP_ENDIAN
 
 #elif defined(__OpenBSD__)
-
 #include <endian.h>
 
 #define __BYTE_ORDER    BYTE_ORDER

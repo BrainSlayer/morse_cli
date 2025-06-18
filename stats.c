@@ -65,24 +65,22 @@ static void get_override_firmware_path(struct morsectrl *mors, char *firmware_fu
     char content_buf[MAX_PATH];
     const char *sysfs_path_fmt = "/sys/class/net/%s/phy80211/name";
     const char *debugfs_path_fmt = "/sys/kernel/debug/ieee80211/%s/morse/firmware_path";
+#ifndef CONFIG_ANDROID
     const char *firmware_path_fmt = "/lib/firmware/%s";
+#else
+    const char *firmware_path_fmt = "/vendor/firmware/%s";
+#endif
 
+    const char *interface_name;
     char *phy_name;
     char *firmware_path;
 
-#ifdef CONFIG_TRANS_NL80211
-    if (mors->transport.type == MORSECTRL_TRANSPORT_NL80211)
+    interface_name = morsectrl_transport_get_ifname(mors->transport);
+    if (!interface_name)
     {
-        snprintf(path_buf, sizeof(path_buf), sysfs_path_fmt,
-                mors->transport.config.nl80211.interface_name);
+        interface_name = DEFAULT_INTERFACE_NAME;
     }
-    else
-    {
-#else
-    {
-#endif
-        snprintf(path_buf, sizeof(path_buf), sysfs_path_fmt, DEFAULT_INTERFACE_NAME);
-    }
+    snprintf(path_buf, sizeof(path_buf), sysfs_path_fmt, interface_name);
 
     phy_name = get_word_from_file(path_buf, content_buf, sizeof(content_buf));
     if (phy_name)
@@ -99,7 +97,11 @@ static void get_override_firmware_path(struct morsectrl *mors, char *firmware_fu
 static int load_offchip_statistics(struct morsectrl *mors, const char *filename)
 {
     FILE *infile;
+#ifndef CONFIG_ANDROID
     char firmware_path[MAX_PATH] = "/lib/firmware/morse/mm6108.bin";
+#else
+    char firmware_path[MAX_PATH] = "/vendor/firmware/morse/mm6108.bin";
+#endif
 
     if (!filename)
     {
@@ -135,6 +137,14 @@ static regex_t *filter_re = NULL;
 static int filter_init(const char *filter_string)
 {
     int ret = 0;
+
+#ifdef CONFIG_ANDROID
+    /* In android, regcomp returns an error "empty (sub)expression" as empty string is
+     * not considered as valid regex.
+     */
+    if (filter_string[0] == '\0')
+    filter_string = "\\(\\)";
+#endif
 
     filter_re = malloc(sizeof(*filter_re));
     ret = regcomp(filter_re, filter_string, 0);
@@ -273,7 +283,7 @@ int morsectrl_stats_cmd(struct morsectrl *mors, int cmd, int reset,
             stats_tlv_tag_t tag =  *((stats_tlv_tag_t *)buf);
             buf += sizeof(stats_tlv_tag_t);
 
-            stats_tlv_len_t len =  *((stats_tlv_len_t *)buf);
+            stats_tlv_len_t len =  le16toh(*((__force __le16 *)buf));
             buf += sizeof(stats_tlv_len_t);
 
             if ((len > resp_sz) || (len == 0))
@@ -286,10 +296,11 @@ int morsectrl_stats_cmd(struct morsectrl *mors, int cmd, int reset,
             struct statistics_offchip_data *offchip = get_stats_offchip(mors, tag);
             if (offchip)
             {
-                if ((offchip->format == MORSE_STATS_FMT_DEC) &&
+                uint32_t format = le32toh((__force __le32)offchip->format);
+                if ((format == MORSE_STATS_FMT_DEC) &&
                         !strncmp(offchip->type_str, "uint", 4))
                 {
-                    offchip->format = MORSE_STATS_FMT_U_DEC;
+                    format = MORSE_STATS_FMT_U_DEC;
                 }
 
                 if (!filter_string || !filter_stat(offchip->key))
@@ -299,12 +310,11 @@ int morsectrl_stats_cmd(struct morsectrl *mors, int cmd, int reset,
                         stats_format_json_init();
                     }
 
-                    if (offchip->format > MORSE_STATS_FMT_LAST)
+                    if (format > MORSE_STATS_FMT_LAST)
                     {
-                        offchip->format = MORSE_STATS_FMT_LAST;
+                        format = MORSE_STATS_FMT_LAST;
                     }
-
-                    table->format_func[offchip->format]((const char *) offchip->key,
+                    table->format_func[format]((const char *) offchip->key,
                                                                 (const uint8_t *)buf, len);
                 }
             }
@@ -404,19 +414,19 @@ int stats(struct morsectrl *mors, int argc, char *argv[])
 
     if (app_c)
     {
-        ret = morsectrl_stats_cmd(mors, MORSE_COMMAND_APP_STATS_LOG, reset,
+        ret = morsectrl_stats_cmd(mors, MORSE_CMD_ID_HOST_STATS_LOG, reset,
             args.filter_str->sval[0], format);
         if (ret) goto exit_stats;
     }
     if (mac_c)
     {
-        ret = morsectrl_stats_cmd(mors, MORSE_COMMAND_MAC_STATS_LOG, reset,
+        ret = morsectrl_stats_cmd(mors, MORSE_CMD_ID_MAC_STATS_LOG, reset,
             args.filter_str->sval[0], format);
         if (ret) goto exit_stats;
     }
     if (uph_c)
     {
-        ret = morsectrl_stats_cmd(mors, MORSE_COMMAND_UPHY_STATS_LOG, reset,
+        ret = morsectrl_stats_cmd(mors, MORSE_CMD_ID_UPHY_STATS_LOG, reset,
             args.filter_str->sval[0], format);
         if (ret) goto exit_stats;
     }

@@ -133,6 +133,8 @@ typedef struct arg_int {
 typedef struct arg_llong {
     struct arg_hdr hdr;
     int count;
+    long long int minval;
+    long long int maxval;
     long long int* ival;
 } arg_llong_t;
 
@@ -210,6 +212,9 @@ ARG_EXTERN struct arg_int* arg_rintn(const char* shortopts, const char* longopts
 ARG_EXTERN struct arg_llong* arg_llong0(const char* shortopts, const char* longopts, const char* datatype, const char* glossary);
 ARG_EXTERN struct arg_llong* arg_llong1(const char* shortopts, const char* longopts, const char* datatype, const char* glossary);
 ARG_EXTERN struct arg_llong* arg_llongn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, const char* glossary);
+ARG_EXTERN struct arg_llong* arg_rllong0(const char* shortopts, const char* longopts, const char* datatype, long long int minval, long long int maxval, const char* glossary);
+ARG_EXTERN struct arg_llong* arg_rllong1(const char* shortopts, const char* longopts, const char* datatype, long long int minval, long long int maxval, const char* glossary);
+ARG_EXTERN struct arg_llong* arg_rllongn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, long long int minval, long long int maxval, const char* glossary);
 
 /* Comma-separated integers, e.g. 1,2,3,4  */
 ARG_EXTERN struct arg_csi* arg_csi0(const char* shortopts, const char* longopts, const char* datatype, int num_args, const char* glossary);

@@ -253,7 +253,7 @@ struct morsectrl_transport_buff *morsectrl_transport_cmd_alloc(
         return NULL;
 
     /* Add the size of the command header and pass down to the correct transport. */
-    return transport->tops->write_alloc(transport, sizeof(struct command) + size);
+    return transport->tops->write_alloc(transport, sizeof(struct request) + size);
 }
 
 struct morsectrl_transport_buff *morsectrl_transport_resp_alloc(
@@ -300,7 +300,7 @@ int morsectrl_transport_buff_free(struct morsectrl_transport_buff *buff)
 void morsectrl_transport_set_cmd_data_length(struct morsectrl_transport_buff *tbuff,
                                              uint16_t length)
 {
-    tbuff->data_len = sizeof(struct command) + length;
+    tbuff->data_len = sizeof(struct request) + length;
 }
 
 int morsectrl_transport_reg_read(struct morsectrl_transport *transport,
@@ -351,13 +351,13 @@ int morsectrl_transport_mem_write(struct morsectrl_transport *transport,
 }
 
 int morsectrl_transport_send(struct morsectrl_transport *transport,
-                             struct morsectrl_transport_buff *cmd,
+                             struct morsectrl_transport_buff *req,
                              struct morsectrl_transport_buff *resp)
 {
     if (!transport->tops)
         return -ETRANSERR;
 
-    return transport->tops->send(transport, cmd, resp);
+    return transport->tops->send(transport, req, resp);
 }
 
 int morsectrl_transport_raw_read(struct morsectrl_transport *transport,

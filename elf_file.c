@@ -67,13 +67,13 @@ static int get_file_header(const uint8_t *data, Elf32_Ehdr *ehdr)
 
     memcpy(ehdr->e_ident, p->e_ident, sizeof(ehdr->e_ident));
 
-    ehdr->e_phoff     = le32toh(p->e_phoff);
-    ehdr->e_phentsize = le16toh(p->e_phentsize);
-    ehdr->e_phnum     = le16toh(p->e_phnum);
-    ehdr->e_shoff = le32toh(p->e_shoff);
-    ehdr->e_shentsize = le16toh(p->e_shentsize);
-    ehdr->e_shnum     = le16toh(p->e_shnum);
-    ehdr->e_shstrndx = le16toh(p->e_shstrndx);
+    ehdr->e_phoff     = le32toh((__force __le32)p->e_phoff);
+    ehdr->e_phentsize = le16toh((__force __le16)p->e_phentsize);
+    ehdr->e_phnum     = le16toh((__force __le16)p->e_phnum);
+    ehdr->e_shoff = le32toh((__force __le32)p->e_shoff);
+    ehdr->e_shentsize = le16toh((__force __le16)p->e_shentsize);
+    ehdr->e_shnum     = le16toh((__force __le16)p->e_shnum);
+    ehdr->e_shstrndx = le16toh((__force __le16)p->e_shstrndx);
 
     return 0;
 }
@@ -87,12 +87,12 @@ static int get_section_header(const uint8_t *data, const Elf32_Ehdr *ehdr, Elf32
     Elf32_Shdr *p = (Elf32_Shdr *)(data + ehdr->e_shoff +
                        (ii * ehdr->e_shentsize));
 
-    shdr->sh_name = le32toh(p->sh_name);
-    shdr->sh_type = le32toh(p->sh_type);
-    shdr->sh_offset = le32toh(p->sh_offset);
-    shdr->sh_addr = le32toh(p->sh_addr);
-    shdr->sh_size = le32toh(p->sh_size);
-    shdr->sh_flags = le32toh(p->sh_flags);
+    shdr->sh_name = le32toh((__force __le32)p->sh_name);
+    shdr->sh_type = le32toh((__force __le32)p->sh_type);
+    shdr->sh_offset = le32toh((__force __le32)p->sh_offset);
+    shdr->sh_addr = le32toh((__force __le32)p->sh_addr);
+    shdr->sh_size = le32toh((__force __le32)p->sh_size);
+    shdr->sh_flags = le32toh((__force __le32)p->sh_flags);
 
     return 0;
 }
@@ -182,13 +182,13 @@ static Elf32_Phdr *elf_file_load_program_headers(FILE *infile, Elf32_Off offset,
     /* Fix endianess. */
     for (ii = 0; ii < count; ii++)
     {
-        phdr[ii].p_type = le32toh(phdr[ii].p_type);
-        phdr[ii].p_offset = le32toh(phdr[ii].p_offset);
-        phdr[ii].p_vaddr = le32toh(phdr[ii].p_vaddr);
-        phdr[ii].p_paddr = le32toh(phdr[ii].p_paddr);
-        phdr[ii].p_filesz = le32toh(phdr[ii].p_filesz);
-        phdr[ii].p_memsz = le32toh(phdr[ii].p_memsz);
-        phdr[ii].p_align = le32toh(phdr[ii].p_align);
+        phdr[ii].p_type = le32toh((__force __le32)phdr[ii].p_type);
+        phdr[ii].p_offset = le32toh((__force __le32)phdr[ii].p_offset);
+        phdr[ii].p_vaddr = le32toh((__force __le32)phdr[ii].p_vaddr);
+        phdr[ii].p_paddr = le32toh((__force __le32)phdr[ii].p_paddr);
+        phdr[ii].p_filesz = le32toh((__force __le32)phdr[ii].p_filesz);
+        phdr[ii].p_memsz = le32toh((__force __le32)phdr[ii].p_memsz);
+        phdr[ii].p_align = le32toh((__force __le32)phdr[ii].p_align);
     }
 
     return phdr;
@@ -214,16 +214,16 @@ Elf32_Shdr *elf_file_load_section_headers(FILE *infile, Elf32_Off offset, Elf32_
     /* Fix endianess. */
     for (ii = 0; ii < count; ii++)
     {
-        shdr[ii].sh_name = le32toh(shdr[ii].sh_name);
-        shdr[ii].sh_type = le32toh(shdr[ii].sh_type);
-        shdr[ii].sh_flags = le32toh(shdr[ii].sh_flags);
-        shdr[ii].sh_addr = le32toh(shdr[ii].sh_addr);
-        shdr[ii].sh_offset = le32toh(shdr[ii].sh_offset);
-        shdr[ii].sh_size = le32toh(shdr[ii].sh_size);
-        shdr[ii].sh_link = le32toh(shdr[ii].sh_link);
-        shdr[ii].sh_info = le32toh(shdr[ii].sh_info);
-        shdr[ii].sh_addralign = le32toh(shdr[ii].sh_addralign);
-        shdr[ii].sh_entsize = le32toh(shdr[ii].sh_entsize);
+        shdr[ii].sh_name = le32toh((__force __le32)shdr[ii].sh_name);
+        shdr[ii].sh_type = le32toh((__force __le32)shdr[ii].sh_type);
+        shdr[ii].sh_flags = le32toh((__force __le32)shdr[ii].sh_flags);
+        shdr[ii].sh_addr = le32toh((__force __le32)shdr[ii].sh_addr);
+        shdr[ii].sh_offset = le32toh((__force __le32)shdr[ii].sh_offset);
+        shdr[ii].sh_size = le32toh((__force __le32)shdr[ii].sh_size);
+        shdr[ii].sh_link = le32toh((__force __le32)shdr[ii].sh_link);
+        shdr[ii].sh_info = le32toh((__force __le32)shdr[ii].sh_info);
+        shdr[ii].sh_addralign = le32toh((__force __le32)shdr[ii].sh_addralign);
+        shdr[ii].sh_entsize = le32toh((__force __le32)shdr[ii].sh_entsize);
     }
 
     return shdr;

@@ -56,27 +56,31 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
     uint8_t op_channel_bandwidth = BANDWIDTH_DEFAULT;
     uint8_t primary_channel_bandwidth = BANDWIDTH_DEFAULT;
     uint8_t primary_1mhz_channel_index = PRIMARY_1MHZ_CHANNEL_INDEX_DEFAULT;
-    struct command_set_channel_req *cmd_set;
-    struct command_get_channel_cfm *resp_get;
+    struct morse_cmd_req_set_channel *cmd_set;
+    struct morse_cmd_resp_get_channel *resp_get;
     bool set_freq = false;
     bool get_all_channels = false;
     bool json = false;
-    uint8_t s1g_chan_power = 1;
+    uint8_t reg_tx_power_set = 1;
+
     struct morsectrl_transport_buff *cmd_set_tbuff;
     struct morsectrl_transport_buff *rsp_set_tbuff;
     struct morsectrl_transport_buff *cmd_get_tbuff;
     struct morsectrl_transport_buff *rsp_get_tbuff;
 
     cmd_set_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd_set));
-    rsp_set_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
-    cmd_get_tbuff = morsectrl_transport_cmd_alloc(mors->transport, 0);
+    rsp_set_tbuff = morsectrl_transport_resp_alloc(mors->transport,
+                        sizeof(struct morse_cmd_resp_set_channel));
+    cmd_get_tbuff = morsectrl_transport_cmd_alloc(mors->transport,
+                        sizeof(struct morse_cmd_req_get_channel));
     rsp_get_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*resp_get));
 
     if (!cmd_set_tbuff || !rsp_set_tbuff || !cmd_get_tbuff || !rsp_get_tbuff)
         goto exit;
 
-    cmd_set = TBUFF_TO_CMD(cmd_set_tbuff, struct command_set_channel_req);
-    resp_get = TBUFF_TO_RSP(rsp_get_tbuff, struct command_get_channel_cfm);
+
+    cmd_set = TBUFF_TO_REQ(cmd_set_tbuff, struct morse_cmd_req_set_channel);
+    resp_get = TBUFF_TO_RSP(rsp_get_tbuff, struct morse_cmd_resp_get_channel);
 
     if (args.frequency->count)
     {
@@ -107,7 +111,7 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
     get_all_channels = (args.all_channels->count > 0);
 
 #ifndef MORSE_CLIENT
-    s1g_chan_power = !(args.ignore_reg_power->count > 0);
+    reg_tx_power_set = !(args.ignore_reg_power->count > 0);
 #endif
 
     if (set_freq)
@@ -118,15 +122,15 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
             goto exit;
         }
 
-        cmd_set->operating_channel_freq_hz = htole32(KHZ_TO_HZ(freq_khz));
-        cmd_set->operating_channel_bw_mhz = op_channel_bandwidth;
-        cmd_set->primary_channel_bw_mhz = primary_channel_bandwidth;
-        cmd_set->primary_1mhz_channel_index = primary_1mhz_channel_index;
+        cmd_set->op_chan_freq_hz = htole32(KHZ_TO_HZ(freq_khz));
+        cmd_set->op_bw_mhz = op_channel_bandwidth;
+        cmd_set->pri_bw_mhz = primary_channel_bandwidth;
+        cmd_set->pri_1mhz_chan_idx = primary_1mhz_channel_index;
         cmd_set->dot11_mode = 0; /* TODO */
-        cmd_set->s1g_chan_power = s1g_chan_power;
+        cmd_set->reg_tx_power_set = reg_tx_power_set;
 
-        ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_CHANNEL,
-                                     cmd_set_tbuff, rsp_set_tbuff);
+        ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_CHANNEL,
+                                    cmd_set_tbuff, rsp_set_tbuff);
 
         if (ret < 0)
         {
@@ -135,7 +139,7 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
         }
     }
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_FULL_CHANNEL,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_GET_CHANNEL_FULL,
                                  cmd_get_tbuff, rsp_get_tbuff);
 
     if (ret < 0)
@@ -152,11 +156,11 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
                "    \"channel_index\":%d,\n" \
                "    \"bw_mhz\":%d\n" \
                "}\n",
-               (resp_get->operating_channel_freq_hz / 1000),
-               resp_get->operating_channel_bw_mhz,
-               resp_get->primary_channel_bw_mhz,
-               resp_get->primary_1mhz_channel_index,
-               resp_get->operating_channel_bw_mhz);
+               (le32toh(resp_get->op_chan_freq_hz) / 1000),
+               resp_get->op_chan_bw_mhz,
+               resp_get->pri_chan_bw_mhz,
+               resp_get->pri_1mhz_chan_idx,
+               resp_get->op_chan_bw_mhz);
     }
     else
     {
@@ -165,15 +169,15 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
                "\tOperating BW: %d MHz\n" \
                "\tPrimary BW: %d MHz\n" \
                "\tPrimary Channel Index: %d\n",
-               (resp_get->operating_channel_freq_hz / 1000),
-               resp_get->operating_channel_bw_mhz,
-               resp_get->primary_channel_bw_mhz,
-               resp_get->primary_1mhz_channel_index);
+               (le32toh(resp_get->op_chan_freq_hz) / 1000),
+               resp_get->op_chan_bw_mhz,
+               resp_get->pri_chan_bw_mhz,
+               resp_get->pri_1mhz_chan_idx);
     }
 
     if (get_all_channels)
     {
-        ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_DTIM_CHANNEL,
+        ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_GET_CHANNEL_DTIM,
                                      cmd_get_tbuff, rsp_get_tbuff);
         if (ret < 0)
         {
@@ -186,12 +190,12 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
                "\tOperating BW: %d MHz\n" \
                "\tPrimary BW: %d MHz\n" \
                "\tPrimary Channel Index: %d\n",
-               (resp_get->operating_channel_freq_hz / 1000),
-               resp_get->operating_channel_bw_mhz,
-               resp_get->primary_channel_bw_mhz,
-               resp_get->primary_1mhz_channel_index);
+               (le32toh(resp_get->op_chan_freq_hz) / 1000),
+               resp_get->op_chan_bw_mhz,
+               resp_get->pri_chan_bw_mhz,
+               resp_get->pri_1mhz_chan_idx);
 
-        ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_CURRENT_CHANNEL,
+        ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_GET_CHANNEL,
                                      cmd_get_tbuff, rsp_get_tbuff);
         if (ret < 0)
         {
@@ -204,10 +208,10 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
                "\tOperating BW: %d MHz\n" \
                "\tPrimary BW: %d MHz\n" \
                "\tPrimary Channel Index: %d\n",
-               (resp_get->operating_channel_freq_hz / 1000),
-               resp_get->operating_channel_bw_mhz,
-               resp_get->primary_channel_bw_mhz,
-               resp_get->primary_1mhz_channel_index);
+               (le32toh(resp_get->op_chan_freq_hz) / 1000),
+               resp_get->op_chan_bw_mhz,
+               resp_get->pri_chan_bw_mhz,
+               resp_get->pri_1mhz_chan_idx);
     }
 
 exit:

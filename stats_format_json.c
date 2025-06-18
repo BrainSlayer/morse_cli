@@ -85,10 +85,14 @@ static void print_txop(const char *key, const uint8_t *buf, uint32_t len)
     struct txop_statistics *txop_stats = (struct txop_statistics *)buf;
     uint32_t duration_avg = 0, packets_avg = 0;
 
+    uint64_t duration = le64toh(txop_stats->duration);
+    uint32_t count = le32toh(txop_stats->count);
+    uint32_t pkts = le32toh(txop_stats->pkts);
+
     if (txop_stats->count)
     {
-        packets_avg = (uint32_t)(txop_stats->pkts / txop_stats->count);
-        duration_avg = (uint32_t)(txop_stats->duration / txop_stats->count);
+        packets_avg = (uint32_t)(pkts / count);
+        duration_avg = (uint32_t)(duration / count);
     }
     char* terminator = pretty ? "\n" : "";
 
@@ -97,11 +101,11 @@ static void print_txop(const char *key, const uint8_t *buf, uint32_t len)
     printf_indent("{%s", terminator);
     indent_level++;
 
-    printf_indent("\"TXOP count\": %lu,%s", txop_stats->count, terminator);
-    printf_indent("\"Total TXOP time\": %llu,%s", txop_stats->duration, terminator);
-    printf_indent("\"Average TXOP time\": %lu,%s", duration_avg, terminator);
-    printf_indent("\"Total TXOP Tx packets\": %lu,%s", txop_stats->pkts, terminator);
-    printf_indent("\"Average TXOP Tx packets\": %lu%s", packets_avg, terminator);
+    printf_indent("\"TXOP count\": %u,%s", count, terminator);
+    printf_indent("\"Total TXOP time\": %llu,%s", duration, terminator);
+    printf_indent("\"Average TXOP time\": %u,%s", duration_avg, terminator);
+    printf_indent("\"Total TXOP Tx packets\": %u,%s", pkts, terminator);
+    printf_indent("\"Average TXOP Tx packets\": %u%s", packets_avg, terminator);
 
     mctrl_print("%s", terminator);
     indent_level--;
@@ -127,8 +131,8 @@ static void print_pageset(const char *key, const uint8_t *buf, uint32_t len)
         indent_level++;
 
         printf_indent("\"Pageset\": %d,%s", i, terminator);
-        printf_indent("\"Allocated\": %d,%s", pageset->pages_allocated[i], terminator);
-        printf_indent("\"Total\": %d%s", pageset->pages_to_allocate[i], terminator);
+        printf_indent("\"Allocated\": %d,%s", le32toh(pageset->pages_allocated[i]), terminator);
+        printf_indent("\"Total\": %d%s", le32toh(pageset->pages_to_allocate[i]), terminator);
 
         indent_level--;
         printf_indent("}");
@@ -155,9 +159,9 @@ static void print_retries(const char *key, const uint8_t *buf, uint32_t len)
         if (i) mctrl_print(",%s", terminator);
         printf_indent("{%s", terminator);
         indent_level++;
-        uint32_t count = retries->count[i];
-        uint32_t avg_time = retries->count[i] ?
-            (uint32_t)(retries->sum[i]/retries->count[i]) : 0;
+        uint32_t count = le32toh(retries->count[i]);
+        uint32_t avg_time = count ?
+            (uint32_t)(le64toh(retries->sum[i])/count) : 0;
 
         printf_indent("\"Retry\": %d,%s", i, terminator);
         printf_indent("\"Count\": %lu,%s", count, terminator);
@@ -189,14 +193,15 @@ static void print_raw(const char *key, const uint8_t *buf, uint32_t len)
 
     for (uint8_t i = 0; i < MORSE_ARRAY_SIZE(raw_stats->assignments); i++)
     {
-        mctrl_print(" %d", raw_stats->assignments[i]);
+        mctrl_print(" %d", le32toh(raw_stats->assignments[i]));
     }
     mctrl_print("\",%s", terminator);
 
-    printf_indent("\"Truncated by TBTT\": %ld,%s",
-        raw_stats->assignments_truncated_from_tbtt, terminator);
-    printf_indent("\"Invalid\": %ld,%s", raw_stats->invalid_assignments, terminator);
-    printf_indent("\"Already past\": %ld%s", raw_stats->already_past_assignment, terminator);
+    printf_indent("\"Truncated by TBTT\": %u,%s",
+        le32toh(raw_stats->assignments_truncated_from_tbtt), terminator);
+    printf_indent("\"Invalid\": %u,%s", le32toh(raw_stats->invalid_assignments), terminator);
+    printf_indent("\"Already past\": %u%s", le32toh(raw_stats->already_past_assignment),
+        terminator);
 
     indent_level--;
     printf_indent("},%s", terminator);
@@ -204,11 +209,12 @@ static void print_raw(const char *key, const uint8_t *buf, uint32_t len)
     printf_indent("{%s", terminator);
     indent_level++;
 
-    printf_indent("\"From ACI queue\": %ld,%s", raw_stats->aci_frames_delayed, terminator);
-    printf_indent("\"From BC/MC queue\": %ld,%s", raw_stats->bc_mc_frames_delayed, terminator);
-    printf_indent("\"From absolute time queue\": %ld,%s",
+    printf_indent("\"From ACI queue\": %u,%s", le32toh(raw_stats->aci_frames_delayed), terminator);
+    printf_indent("\"From BC/MC queue\": %u,%s",
+        le32toh(raw_stats->bc_mc_frames_delayed), terminator);
+    printf_indent("\"From absolute time queue\": %u,%s",
         raw_stats->abs_frames_delayed, terminator);
-    printf_indent("\"Frame crosses slot\": %ld%s",
+    printf_indent("\"Frame crosses slot\": %u%s",
         raw_stats->frame_crosses_slot_delayed, terminator);
 
     indent_level--;
@@ -232,15 +238,15 @@ static void print_calibration(const char *key, const uint8_t *buf, uint32_t len)
     printf_indent("\"Managed calibration\": %s", terminator);
     printf_indent("{%s", terminator);
 
-    printf_indent("\"Quiet calibration granted\": %ld,%s",
-            calib_stats->quiet_calibration_granted, terminator);
-    printf_indent("\"Quiet calibration rejected\": %ld,%s",
-            calib_stats->quiet_calibration_rejected, terminator);
-    printf_indent("\"Quiet calibration cancelled\": %ld,%s",
-            calib_stats->quiet_calibration_cancelled, terminator);
-    printf_indent("\"Non-quiet calibration granted\": %ld,%s",
-            calib_stats->non_quiet_calibration_granted, terminator);
-    printf_indent("\"Calibration complete\": %ld%s", calib_stats->calibration_complete,
+    printf_indent("\"Quiet calibration granted\": %u,%s",
+            le32toh(calib_stats->quiet_calibration_granted), terminator);
+    printf_indent("\"Quiet calibration rejected\": %u,%s",
+            le32toh(calib_stats->quiet_calibration_rejected), terminator);
+    printf_indent("\"Quiet calibration cancelled\": %u,%s",
+            le32toh(calib_stats->quiet_calibration_cancelled), terminator);
+    printf_indent("\"Non-quiet calibration granted\": %u,%s",
+            le32toh(calib_stats->non_quiet_calibration_granted), terminator);
+    printf_indent("\"Calibration complete\": %u%s", calib_stats->calibration_complete,
             terminator);
 
     indent_level--;
@@ -263,20 +269,20 @@ static void print_duty_cycle(const char *key, const uint8_t *buf, uint32_t len)
     /* Duty Cycle Body*/
     printf_indent("\"Duty Cycle Target (%c)\": %d.%02d,%s",
                   '%',
-                  duty_cycle_stats->target_duty_cycle / 100,
-                  duty_cycle_stats->target_duty_cycle % 100,
+                  le32toh(duty_cycle_stats->target_duty_cycle) / 100,
+                  le32toh(duty_cycle_stats->target_duty_cycle) % 100,
                   terminator);
     printf_indent("\"Duty Cycle TX on (usec)\": %llu,%s",
-                  duty_cycle_stats->total_t_air,
+                  le64toh(duty_cycle_stats->total_t_air),
                   terminator);
     printf_indent("\"Duty Cycle TX off (blocked) (usec)\": %llu,%s",
-                  duty_cycle_stats->total_t_off,
+                  le64toh(duty_cycle_stats->total_t_off),
                   terminator);
     printf_indent("\"Duty Cycle max time off (usec)\": %llu,%s",
-                  duty_cycle_stats->max_t_off,
+                  le64toh(duty_cycle_stats->max_t_off),
                   terminator);
     printf_indent("\"Duty Cycle early frames\": %u%s",
-                  duty_cycle_stats->num_early,
+                  le32toh(duty_cycle_stats->num_early),
                   terminator);
 
     indent_level--;
@@ -286,8 +292,7 @@ static void print_duty_cycle(const char *key, const uint8_t *buf, uint32_t len)
 
 static void print_mac_state(const char *key, const uint8_t *buf, uint32_t len)
 {
-    uint64_t mac_state;
-    memcpy(&mac_state, buf, sizeof(mac_state));
+    uint64_t mac_state = le64toh(*(__force __le64*) buf);
     char* terminator = pretty ? "\n" : "";
 
     printf_indent("\"%s\": ", key);
@@ -330,7 +335,7 @@ static void print_umac_latency_histogram(const char *key, const uint8_t *buf, ui
     mctrl_print("\"");
     for (size_t i = 0; i < MORSE_ARRAY_SIZE(histogram->buckets); i++)
     {
-        mctrl_print("%d ", histogram->buckets[i]);
+        mctrl_print("%d ", le32toh(histogram->buckets[i]));
     }
     mctrl_print("\"");
 }
@@ -340,9 +345,9 @@ static void print_array(const char *key, const uint8_t *buf, uint32_t len)
     array_t *array = (array_t *)buf;
     printf_indent("\"%s\": ", key);
     mctrl_print("\"");
-    for (int i = 0; i < array->count; i++)
+    for (int i = 0; i < le16toh(array->count); i++)
     {
-        mctrl_print("%d ", array->array[i]);
+        mctrl_print("%d ", le16toh(array->array[i]));
     }
     mctrl_print("\"");
 }
@@ -390,13 +395,13 @@ static const struct format_table table = {
 };
 
 
-const struct format_table* stats_format_json_get_formatter_table()
+const struct format_table* stats_format_json_get_formatter_table(void)
 {
     return &table;
 }
 
 
-void stats_format_json_init()
+void stats_format_json_init(void)
 {
     indent_level = INDENT_FIRST_LEVEL;
 

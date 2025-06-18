@@ -14,15 +14,6 @@
 #include "command.h"
 #include "mm_argtable3.h"
 
-/** Structure for a get version confirm */
-struct PACKED get_version_response
-{
-    /** Length of version */
-    int32_t length;
-    /** The version string */
-    uint8_t version[128];
-};
-
 int version_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
     MM_INIT_ARGTABLE(mm_args, "Get software versions");
@@ -33,19 +24,21 @@ int version(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     uint32_t len;
-    struct get_version_response *version;
+    struct morse_cmd_resp_get_version *version;
     struct morsectrl_transport_buff *cmd_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, 0);
-    rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*version));
+    /* Allocate space for the resp, the max version str len and a null character */
+    rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*version) +
+                    sizeof(version->version[0]) * (MORSE_CMD_MAX_VERSION_LEN) + 1);
 
     if (!cmd_tbuff || !rsp_tbuff)
         goto exit;
 
-    version = TBUFF_TO_RSP(rsp_tbuff, struct get_version_response);
+    version = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_get_version);
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_VERSION,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_GET_VERSION,
                                  cmd_tbuff, rsp_tbuff);
 exit:
     if (ret >= 0)

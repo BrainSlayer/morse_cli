@@ -9,17 +9,6 @@
 #include "command.h"
 #include "utilities.h"
 
-struct PACKED command_mac_addr_req
-{
-    uint8_t write;
-    uint8_t mac_octet[MAC_ADDR_LEN];
-};
-
-struct PACKED command_mac_addr_cfm
-{
-    uint8_t mac_octet[MAC_ADDR_LEN];
-};
-
 
 int macaddr_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
@@ -32,32 +21,32 @@ int macaddr_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 int macaddr(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
-    struct command_mac_addr_req *cmd;
-    struct command_mac_addr_cfm *resp;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_mac_addr *req;
+    struct morse_cmd_resp_mac_addr *resp;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*resp));
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_mac_addr_req);
-    resp = TBUFF_TO_RSP(rsp_tbuff, struct command_mac_addr_cfm);
-    cmd->write = false;
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_mac_addr);
+    resp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_mac_addr);
+    req->write = false;
 
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_MAC_ADDR,
-                                 cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_MAC_ADDR,
+                                 req_tbuff, rsp_tbuff);
 exit:
     if (!ret)
     {
-        uint8_t *mac_octet = resp->mac_octet;
+        uint8_t *mac_octet = resp->octet;
         mctrl_print("Chip MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
                mac_octet[0], mac_octet[1], mac_octet[2], mac_octet[3],
                mac_octet[4], mac_octet[5]);
     }
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

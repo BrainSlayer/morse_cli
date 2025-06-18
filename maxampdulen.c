@@ -14,12 +14,6 @@
 #include "command.h"
 #include "utilities.h"
 
-
-struct PACKED set_max_ampdu_length_command
-{
-    int32_t n_bytes;
-};
-
 static struct {
     struct arg_int *bytes;
     struct arg_lit *reset;
@@ -37,14 +31,14 @@ int maxampdulen(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     int n_bytes = 0;
-    struct set_max_ampdu_length_command *cmd;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_max_ampdu_length *req;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
     if (args.bytes->count)
@@ -62,13 +56,13 @@ int maxampdulen(struct morsectrl *mors, int argc, char *argv[])
         goto exit;
     }
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_max_ampdu_length_command);
-    cmd->n_bytes = htole32(n_bytes);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_max_ampdu_length);
+    req->n_bytes = htole32(n_bytes);
 
-    ret = morsectrl_send_command(mors->transport, MORSE_TEST_COMMAND_SET_MAX_AMPDU_LENGTH,
-                                 cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_MAX_AMPDU_LENGTH,
+                                 req_tbuff, rsp_tbuff);
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

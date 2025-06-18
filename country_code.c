@@ -1,34 +1,30 @@
 /*
- * Copyright 2022 Morse Micro
+ * Copyright 2025 Morse Micro
  * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
 #include "command.h"
-#include "morse_commands.h"
 #include "utilities.h"
 
-static struct
-{
-    struct arg_int *bank_num;
-} args;
+#define COUNTRY_CODE_BANK_VAL_NOT_SET   (0x04040)
 
-int otp_init(struct morsectrl *mors, struct mm_argtable *mm_args)
-{
-#define OTP_ARGTABLE_DESC "Read OTP bank"
-#define OTP_BANK_NUM_DESC "Bank number to read from"
 
-    MM_INIT_ARGTABLE(mm_args, OTP_ARGTABLE_DESC,
-        args.bank_num = arg_rint1(NULL, NULL, "<bank num>", 0, UINT8_MAX, OTP_BANK_NUM_DESC)
+int country_code_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+{
+#define COUNTRY_CODE_ARGTABLE_DESC "Read country code OTP bank"
+
+    MM_INIT_ARGTABLE(mm_args, COUNTRY_CODE_ARGTABLE_DESC
     ); /* NOLINT (whitespace/parens) */
     return 0;
 }
 
-int otp(struct morsectrl *mors, int argc, char *argv[])
+int country_code(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
 
@@ -46,21 +42,27 @@ int otp(struct morsectrl *mors, int argc, char *argv[])
     req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_otp);
     resp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_otp);
     req->write_otp = 0;
-    req->bank_region = MORSE_CMD_OTP_REGION_ALL_BANK;
 
 
-    req->bank_num = args.bank_num->ival[0];
+    req->bank_region = MORSE_CMD_OTP_REGION_COUNTRY;
+    req->bank_num = UINT8_MAX;
 
     ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_OTP,
                                  req_tbuff, rsp_tbuff);
 
 exit:
     if (ret == 0 && !req->write_otp)
-        mctrl_print("OTP Bank %d: 0x%x\n", args.bank_num->ival[0], resp->bank_val);
+    {
+        uint32_t bank_val = le32toh(resp->bank_val);
+        if (!bank_val || bank_val == COUNTRY_CODE_BANK_VAL_NOT_SET)
+            mctrl_print("Country code is not set\n");
+        else
+            mctrl_print("%c%c\n", (uint8_t) bank_val, (uint8_t)(bank_val >> 8));
+    }
 
     morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }
 
-MM_CLI_HANDLER(otp, MM_INTF_REQUIRED, MM_DIRECT_CHIP_SUPPORTED);
+MM_CLI_HANDLER(country_code, MM_INTF_REQUIRED, MM_DIRECT_CHIP_SUPPORTED);

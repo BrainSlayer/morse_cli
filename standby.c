@@ -18,147 +18,19 @@
 #include "transport/transport.h"
 #include "channel.h"
 
-/** The maximum allowed length of a user specified payload (bytes) in the status frames */
-#define STANDBY_STATUS_FRAME_USER_PAYLOAD_MAX_LEN  (64)
-/** The maximum allowed length of a user filter to apply to wake frames */
-#define STANDBY_WAKE_FRAME_USER_FILTER_MAX_LEN     (64)
-
 /** Max line length for a config file line */
 #define MAX_LINE_LENGTH     (255)
 
-typedef enum
-{
-    /** The external host is indicating that it's now awake */
-    STANDBY_MODE_CMD_EXIT = 0x0,
-    /** The external host is indicating that it's going into standby mode */
-    STANDBY_MODE_CMD_ENTER,
-    /** This version of the config command has since been deprecated */
-    STANDBY_MODE_CMD_SET_CONFIG_V1_DEPRECATED,
-    /** The external host provides a payload that gets appended to status frames */
-    STANDBY_MODE_CMD_SET_STATUS_PAYLOAD,
-    /** The external host provides a filter to be applied to incoming standby wake frames */
-    STANDBY_MODE_CMD_SET_WAKE_FILTER,
-    /** The external host sets a number of configuration options for standby mode */
-    STANDBY_MODE_CMD_SET_CONFIG_V2,
-
-    /** Force enum to UINT32 */
-    STANDBY_MODE_CMD_MAX = UINT32_MAX,
-} standby_mode_commands_t;
-
-struct PACKED command_standby_set_config
-{
-    /** Interval for transmitting Standby status packets */
-    uint32_t notify_period_s;
-    /** Time for firmware to wait during beacon loss before entering deep sleep in seconds */
-    uint32_t bss_inactivity_before_deep_sleep_s;
-    /** Time for firmware to remain in deep sleep in seconds */
-    uint32_t deep_sleep_period_s;
-    /** Source IP address */
-    ipv4_addr_t src_ip;
-    /** Destination IP address */
-    ipv4_addr_t dst_ip;
-    /** Destination UDP Port */
-    uint16_t dst_port;
-    /** pad to word boundary */
-    uint8_t pad[2];
-    /** Time in seconds to increment each successive deep sleep */
-    uint32_t deep_sleep_increment_s;
-    /** Max time to deep sleep for */
-    uint32_t deep_sleep_max_s;
-};
-
-struct PACKED command_standby_set_wake_filter
-{
-    /** The length of the wake filter */
-    uint32_t len;
-    /** The offset at which to apply the wake filter */
-    uint32_t offset;
-    /** The user-defined filter */
-    uint8_t filter[STANDBY_WAKE_FRAME_USER_FILTER_MAX_LEN];
-};
-
-struct PACKED command_standby_set_status_payload
-{
-    /** The length of the payload */
-    uint32_t len;
-    /** The payload */
-    uint8_t payload[STANDBY_STATUS_FRAME_USER_PAYLOAD_MAX_LEN];
-};
-
-struct PACKED command_standby_enter
-{
-    /** The BSSID to monitor for activity (or lack thereof) before entering deep sleep */
-    uint8_t bssid[MAC_ADDR_LEN];
-};
-
-/**
- * Structure for Configuring MM standby mode
- */
-struct PACKED command_standby_mode_req
-{
-    /** Standby Mode subcommands, see @ref standby_mode_commands_t */
-    uint32_t cmd;
-    union {
-        uint8_t opaque[0];
-        /** Valid for STANDBY_MODE_CMD_SET_CONFIG cmd */
-        struct command_standby_set_config config;
-        /** Valid for STANDBY_MODE_CMD_SET_STATUS_PAYLOAD cmd */
-        struct command_standby_set_status_payload set_payload;
-        /** Valid for STANDBY_MODE_CMD_ENTER cmd*/
-        struct command_standby_enter enter;
-        /** Valid for STANDBY_MODE_CMD_SET_WAKE_FILTER cmd */
-        struct command_standby_set_wake_filter set_filter;
-    };
-};
-
-typedef enum
-{
-    /** No specific reason for exiting standby mode */
-    STANDBY_MODE_EXIT_REASON_NONE,
-    /** The STA has received the wakeup frame */
-    STANDBY_MODE_EXIT_REASON_WAKEUP_FRAME,
-    /** The STA needs to associate */
-    STANDBY_MODE_EXIT_REASON_ASSOCIATE,
-    /** The STA's external input pin has fired */
-    STANDBY_MODE_EXIT_REASON_EXT_INPUT,
-    /** Whitelisted packet received */
-    STANDBY_MODE_EXIT_REASON_WHITELIST_PKT,
-    /** TCP connection lost */
-    STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST,
-    /** HW scan is not enabled */
-    STANDBY_MODE_EXIT_REASON_HW_SCAN_NOT_ENABLED,
-    /** HW scan failed to start */
-    STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START,
-} standby_mode_exit_reason_t;
-
-
-struct command_standby_mode_exit {
-    /** Valid for a response to STANDBY_MODE_CMD_EXIT, see @ref standby_mode_exit_reason_t */
-    uint8_t reason;
-    /** STA state at the time of exit */
-    uint8_t sta_state;
-};
-/**
- * Response structure for MM standby mode command
- */
-struct PACKED command_standby_mode_cfm
-{
-    union {
-        uint8_t opaque[0];
-        struct command_standby_mode_exit info;
-    };
-};
-
 struct standby_config_parse_context
 {
-    struct command_standby_set_config *set_cfg;
-    struct command_standby_set_wake_filter *filter_cfg;
+    struct morse_cmd_standby_set_config *set_cfg;
+    struct morse_cmd_standby_set_wake_filter *filter_cfg;
 };
 
 struct standby_session_parse_context
 {
     uint8_t *bssid;
-    struct command_set_channel_req *req;
+    struct morse_cmd_req_set_channel *req;
 };
 
 static struct {
@@ -181,7 +53,6 @@ static struct {
 } enter_args;
 
 static struct {
-    struct arg_rem *desc;
     struct arg_lit *json_format;
 } exit_args;
 
@@ -200,10 +71,10 @@ static struct {
 
 static int standby_get_cmd(const char str[])
 {
-    if (strcmp("enter", str) == 0) return STANDBY_MODE_CMD_ENTER;
-    else if (strcmp("exit", str) == 0) return STANDBY_MODE_CMD_EXIT;
-    else if (strcmp("config", str) == 0) return STANDBY_MODE_CMD_SET_CONFIG_V2;
-    else if (strcmp("payload", str) == 0) return STANDBY_MODE_CMD_SET_STATUS_PAYLOAD;
+    if (strcmp("enter", str) == 0) return MORSE_CMD_STANDBY_MODE_ENTER;
+    else if (strcmp("exit", str) == 0) return MORSE_CMD_STANDBY_MODE_EXIT;
+    else if (strcmp("config", str) == 0) return MORSE_CMD_STANDBY_MODE_SET_CONFIG_V3;
+    else if (strcmp("payload", str) == 0) return MORSE_CMD_STANDBY_MODE_SET_STATUS_PAYLOAD;
     else
     {
         return -1;
@@ -233,7 +104,7 @@ int standby_init(struct morsectrl *mors, struct mm_argtable *mm_args)
         arg_rem(NULL, "No longer required and is retained for backwards compatibility"));
 
     MM_INIT_ARGTABLE(&exit_cmd, "Tell the firmware that the host is awake",
-        exit_args.desc = arg_rem(NULL, "Firmware responds with one of the following reason codes"),
+                        arg_rem(NULL, "Firmware responds with one of the following reason codes"),
                         arg_rem(NULL, "0 - none"),
                         arg_rem(NULL, "1 - wake-up frame received"),
                         arg_rem(NULL, "2 - association lost"),
@@ -254,7 +125,7 @@ int standby_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 
     MM_INIT_ARGTABLE(&store,
         "Store session information when associated (internal use only)",
-            store_args.bssid = arg_rex1("b", NULL, "([a-f0-9]{2}:){5}([a-f0-9]{2})",
+            store_args.bssid = arg_rex1("b", NULL, MAC_CMD_REGEX,
                 "<BSSID MAC Address>", ARG_REX_ICASE, "Association BSSID"),
             store_args.dir = arg_file1("d", NULL, "<dir>",
                 "The full directory path for storing persistent sessions"));
@@ -356,6 +227,15 @@ static int parse_standby_config_keyval(struct morsectrl *mors, void *context, co
         config->set_cfg->deep_sleep_max_s = htole32(temp);
         return 0;
     }
+    else if (strcmp("deep_sleep_scan_iterations", key) == 0)
+    {
+        if (str_to_uint32(val, &temp) < 0)
+        {
+            goto error;
+        }
+        config->set_cfg->deep_sleep_scan_iterations = htole32(temp);
+        return 0;
+    }
     else if (strcmp("wake_packet_filter", key) == 0)
     {
         uint32_t len = MIN(strlen(val) / 2, MORSE_ARRAY_SIZE(config->filter_cfg->filter));
@@ -405,7 +285,7 @@ static int parse_standby_session_keyval(struct morsectrl *mors, void *context, c
         {
             goto error;
         }
-        ctx->req->operating_channel_freq_hz = htole32(temp);
+        ctx->req->op_chan_freq_hz = htole32(temp);
         return 0;
     }
     else if (strcmp("op_chan_bw", key) == 0)
@@ -414,7 +294,7 @@ static int parse_standby_session_keyval(struct morsectrl *mors, void *context, c
         {
             goto error;
         }
-        ctx->req->operating_channel_bw_mhz = (uint8_t) temp;
+        ctx->req->op_bw_mhz = (uint8_t) temp;
         return 0;
     }
     else if (strcmp("pri_chan_bw", key) == 0)
@@ -423,7 +303,7 @@ static int parse_standby_session_keyval(struct morsectrl *mors, void *context, c
         {
             goto error;
         }
-        ctx->req->primary_channel_bw_mhz = (uint8_t) temp;
+        ctx->req->pri_bw_mhz = (uint8_t) temp;
         return 0;
     }
     else if (strcmp("pri_1mhz_chan", key) == 0)
@@ -432,7 +312,7 @@ static int parse_standby_session_keyval(struct morsectrl *mors, void *context, c
         {
             goto error;
         }
-        ctx->req->primary_1mhz_channel_index = (uint8_t) temp;
+        ctx->req->pri_1mhz_chan_idx = (uint8_t) temp;
         return 0;
     }
 
@@ -513,7 +393,7 @@ static int config_parse(struct morsectrl *mors, const char *conf_file,
 }
 
 static int standby_session_store(struct morsectrl *mors, const char *ifname, const uint8_t *bssid,
-    const char *standby_session_dir, struct command_get_channel_cfm *rsp)
+    const char *standby_session_dir, struct morse_cmd_resp_get_channel *rsp)
 {
     FILE *f;
     char dir[MORSE_FILENAME_LEN_MAX];
@@ -550,10 +430,10 @@ static int standby_session_store(struct morsectrl *mors, const char *ifname, con
     }
 
     fprintf(f, "bssid=" MACSTR "\n", MAC2STR(bssid));
-    fprintf(f, "op_chan_freq=%u\n", rsp->operating_channel_freq_hz);
-    fprintf(f, "op_chan_bw=%u\n", rsp->operating_channel_bw_mhz);
-    fprintf(f, "pri_chan_bw=%u\n", rsp->primary_channel_bw_mhz);
-    fprintf(f, "pri_1mhz_chan=%u\n", rsp->primary_1mhz_channel_index);
+    fprintf(f, "op_chan_freq=%u\n", rsp->op_chan_freq_hz);
+    fprintf(f, "op_chan_bw=%u\n", rsp->op_chan_bw_mhz);
+    fprintf(f, "pri_chan_bw=%u\n", rsp->pri_chan_bw_mhz);
+    fprintf(f, "pri_1mhz_chan=%u\n", rsp->pri_1mhz_chan_idx);
 
     fclose(f);
 
@@ -566,7 +446,7 @@ static int standby_session_store(struct morsectrl *mors, const char *ifname, con
 }
 
 static int standby_session_load(struct morsectrl *mors, const char *standby_session_dir,
-        uint8_t *bssid, struct command_set_channel_req *req)
+        uint8_t *bssid, struct morse_cmd_req_set_channel *req)
 {
     const char *ifname = morsectrl_transport_get_ifname(mors->transport);
     struct standby_session_parse_context context = {
@@ -597,12 +477,12 @@ err_parse:
 }
 
 static int process_standby_enter(struct morsectrl *mors,
-                                    struct command_standby_mode_req *standby_cmd,
+                                    struct morse_cmd_req_standby_mode *standby_cmd,
                                     int argc, char *argv[])
 {
     const char *standby_session_dir = NULL;
     int ret;
-    struct command_set_channel_req *ch_cmd;
+    struct morse_cmd_req_set_channel *ch_cmd;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
 
@@ -622,7 +502,8 @@ static int process_standby_enter(struct morsectrl *mors,
     }
 
     cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*ch_cmd));
-    rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
+    rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport,
+                    sizeof(struct morse_cmd_resp_set_channel));
 
     if (!cmd_tbuff || !rsp_tbuff)
     {
@@ -631,10 +512,11 @@ static int process_standby_enter(struct morsectrl *mors,
         goto exit;
     }
 
-    ch_cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_set_channel_req);
+    ch_cmd = TBUFF_TO_REQ(cmd_tbuff, struct morse_cmd_req_set_channel);
 
     /* load the saved standby parameters */
-    ret = standby_session_load(mors, standby_session_dir, standby_cmd->enter.bssid, ch_cmd);
+    ret = standby_session_load(mors, standby_session_dir,
+                standby_cmd->enter.monitor_bssid.octet, ch_cmd);
     if (ret < 0)
     {
         mctrl_err("Failed to load session info\n");
@@ -644,15 +526,15 @@ static int process_standby_enter(struct morsectrl *mors,
     if (mors->debug)
     {
         mctrl_print("Loaded session info:\n");
-        mctrl_print("bssid " MACSTR "\n", MAC2STR(standby_cmd->enter.bssid));
-        mctrl_print("op ch freq %d\n", ch_cmd->operating_channel_freq_hz);
-        mctrl_print("op ch bw %d\n", ch_cmd->operating_channel_bw_mhz);
-        mctrl_print("pri ch bw %d\n", ch_cmd->primary_channel_bw_mhz);
-        mctrl_print("pri 1mhz idx %d\n", ch_cmd->primary_1mhz_channel_index);
+        mctrl_print("bssid " MACSTR "\n", MAC2STR(standby_cmd->enter.monitor_bssid.octet));
+        mctrl_print("op ch freq %d\n", ch_cmd->op_chan_freq_hz);
+        mctrl_print("op ch bw %d\n", ch_cmd->op_bw_mhz);
+        mctrl_print("pri ch bw %d\n", ch_cmd->pri_bw_mhz);
+        mctrl_print("pri 1mhz idx %d\n", ch_cmd->pri_1mhz_chan_idx);
     }
 
     /* Set the channel before we go to sleep */
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_CHANNEL,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_CHANNEL,
                                  cmd_tbuff, rsp_tbuff);
     if (ret < 0)
     {
@@ -687,8 +569,8 @@ static int standby_store_session_cmd(struct morsectrl *mors, int argc, char *arg
     const char *standby_session_dir = NULL;
     int ret;
     const char *ifname = morsectrl_transport_get_ifname(mors->transport);
-    struct command_set_channel_req *cmd;
-    struct command_get_channel_cfm *rsp;
+    struct morse_cmd_req_set_channel *req;
+    struct morse_cmd_resp_get_channel *rsp;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
 
@@ -698,7 +580,7 @@ static int standby_store_session_cmd(struct morsectrl *mors, int argc, char *arg
         goto exit;
     }
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp));
 
     if (ifname == NULL)
@@ -715,8 +597,8 @@ static int standby_store_session_cmd(struct morsectrl *mors, int argc, char *arg
         goto exit;
     }
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_set_channel_req);
-    rsp = TBUFF_TO_RSP(rsp_tbuff, struct command_get_channel_cfm);
+    req = TBUFF_TO_REQ(cmd_tbuff, struct morse_cmd_req_set_channel);
+    rsp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_get_channel);
 
     if (str_to_mac_addr(bssid, store_args.bssid->sval[0]) < 0)
     {
@@ -727,7 +609,7 @@ static int standby_store_session_cmd(struct morsectrl *mors, int argc, char *arg
 
     standby_session_dir = store_args.dir->filename[0];
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_FULL_CHANNEL,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_GET_CHANNEL_FULL,
                                  cmd_tbuff, rsp_tbuff);
     if (ret < 0)
     {
@@ -746,52 +628,53 @@ exit:
 }
 
 static int send_wake_filter_cmd(struct morsectrl *mors,
-                                    struct command_standby_set_wake_filter *wake_cmd)
+                                    struct morse_cmd_standby_set_wake_filter *wake_cmd)
 {
     int ret = -1;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-    struct command_standby_mode_req *cmd;
-    struct command_standby_mode_cfm *rsp = NULL;
+    struct morse_cmd_req_standby_mode *req;
+    struct morse_cmd_resp_standby_mode *rsp = NULL;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp));
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
     {
         goto exit;
     }
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_standby_mode_req);
-    rsp = TBUFF_TO_RSP(rsp_tbuff, struct command_standby_mode_cfm);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_standby_mode);
+    rsp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_standby_mode);
 
-    cmd->cmd = STANDBY_MODE_CMD_SET_WAKE_FILTER;
+    req->cmd = htole32(MORSE_CMD_STANDBY_MODE_SET_WAKE_FILTER);
 
-    memcpy(&cmd->set_filter, wake_cmd, sizeof(*wake_cmd));
+    memcpy(&req->set_filter, wake_cmd, sizeof(*wake_cmd));
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_STANDBY_MODE,
-        cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_STANDBY_MODE,
+        req_tbuff, rsp_tbuff);
 
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }
 
-static int process_set_config_cmd(struct morsectrl *mors, struct command_standby_mode_req* cmd,
-                                    int argc, char *argv[])
+static int process_set_config_cmd(struct morsectrl *mors,
+                struct morse_cmd_req_standby_mode* req, int argc, char *argv[])
 {
-    struct command_standby_set_wake_filter wake_filter = {0};
-    static const struct command_standby_set_config config_default = {
-        .bss_inactivity_before_deep_sleep_s = 60,
-        .deep_sleep_period_s = 120,
-        .notify_period_s = 15,
-        .dst_ip.as_u32 = 0,
-        .dst_port = 22000,
-        .src_ip.as_u32 = 0,
+    struct morse_cmd_standby_set_wake_filter wake_filter = {0};
+    static struct morse_cmd_standby_set_config config_default = {
+        .src_ip = 0,
+        .dst_ip = 0,
         .deep_sleep_increment_s = 0, /* Default no increment */
-        .deep_sleep_max_s = UINT32_MAX, /* Default max int / no max */
     };
+    config_default.bss_inactivity_before_deep_sleep_s = htole32(60);
+    config_default.deep_sleep_period_s = htole32(120);
+    config_default.notify_period_s = htole32(15);
+    config_default.dst_port = htole16(22000);
+    config_default.deep_sleep_max_s = htole32(UINT32_MAX); /* Default max int / no max */
+
     int ret;
 
     ret = mm_parse_argtable("standby config", &config, argc, argv);
@@ -800,11 +683,11 @@ static int process_set_config_cmd(struct morsectrl *mors, struct command_standby
         return ret;
     }
 
-    memcpy(&cmd->config, &config_default, sizeof(config_default));
+    memcpy(&req->config, &config_default, sizeof(config_default));
 
     struct standby_config_parse_context context = {
         .filter_cfg = &wake_filter,
-        .set_cfg = &cmd->config
+        .set_cfg = &req->config
     };
 
     if (config_parse(mors, config_args.file->filename[0], parse_standby_config_keyval, &context))
@@ -822,7 +705,8 @@ static int process_set_config_cmd(struct morsectrl *mors, struct command_standby
     return 0;
 }
 
-static int process_set_status_payload(struct command_standby_mode_req* cmd, int argc, char *argv[])
+static int process_set_status_payload(struct morse_cmd_req_standby_mode* req,
+                                      int argc, char *argv[])
 {
     uint32_t payload_len;
 
@@ -841,17 +725,17 @@ static int process_set_status_payload(struct command_standby_mode_req* cmd, int 
     }
 
     payload_len = (payload_len / 2);
-    if (payload_len > STANDBY_STATUS_FRAME_USER_PAYLOAD_MAX_LEN)
+    if (payload_len > MORSE_CMD_STANDBY_STATUS_FRAME_USER_PAYLOAD_MAX_LEN)
     {
         mctrl_err("Supplied payload is too large: %d > %d\n", payload_len,
-            STANDBY_STATUS_FRAME_USER_PAYLOAD_MAX_LEN);
+            MORSE_CMD_STANDBY_WAKE_FRAME_USER_FILTER_MAX_LEN);
         return -1;
     }
 
-    cmd->set_payload.len = payload_len;
+    req->set_payload.len = htole32(payload_len);
     for (int i = 0; i < payload_len; i++)
     {
-        ret = sscanf(&(payload_args.data->sval[0][i * 2]), "%2hhx", &cmd->set_payload.payload[i]);
+        ret = sscanf(&(payload_args.data->sval[0][i * 2]), "%2hhx", &req->set_payload.payload[i]);
         if (ret != 1)
         {
             mctrl_err("Invalid hex string\n");
@@ -865,21 +749,21 @@ static int process_set_status_payload(struct command_standby_mode_req* cmd, int 
 static const char *standby_exit_reason_to_str(int reason)
 {
     switch (reason) {
-    case STANDBY_MODE_EXIT_REASON_NONE:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_NONE:
         return "none";
-    case STANDBY_MODE_EXIT_REASON_WAKEUP_FRAME:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_WAKEUP_FRAME:
         return "wake-up frame received";
-    case STANDBY_MODE_EXIT_REASON_ASSOCIATE:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_ASSOCIATE:
         return "association lost";
-    case STANDBY_MODE_EXIT_REASON_EXT_INPUT:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_EXT_INPUT:
         return "external input pin fired";
-    case STANDBY_MODE_EXIT_REASON_WHITELIST_PKT:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_WHITELIST_PKT:
         return "whitelisted packet received";
-    case STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST:
         return "TCP connection lost";
-    case STANDBY_MODE_EXIT_REASON_HW_SCAN_NOT_ENABLED:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_HW_SCAN_NOT_ENABLED:
         return "HW scan not enabled";
-    case STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START:
+    case MORSE_CMD_STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START:
         return "HW scan failed to start";
     default:
         return "unknown";
@@ -891,10 +775,10 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
     int ret = -1;
     int i = 0;
     bool json = false;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-    struct command_standby_mode_req *cmd;
-    struct command_standby_mode_cfm *rsp = NULL;
+    struct morse_cmd_req_standby_mode *req;
+    struct morse_cmd_resp_standby_mode *rsp = NULL;
 
     /* Local-only command - not sent to firmware */
     if (strcmp("store", args.command->sval[0]) == 0)
@@ -902,24 +786,24 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
         return standby_store_session_cmd(mors, argc, argv);
     }
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp));
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
     {
         goto exit;
     }
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_standby_mode_req);
-    rsp = TBUFF_TO_RSP(rsp_tbuff, struct command_standby_mode_cfm);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_standby_mode);
+    rsp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_standby_mode);
 
-    cmd->cmd = standby_get_cmd(args.command->sval[0]);
+    req->cmd = htole32(standby_get_cmd(args.command->sval[0]));
 
-    switch (cmd->cmd)
+    switch (le32toh(req->cmd))
     {
-        case STANDBY_MODE_CMD_SET_CONFIG_V2:
+        case MORSE_CMD_STANDBY_MODE_SET_CONFIG_V3:
         {
-            ret = process_set_config_cmd(mors, cmd, argc, argv);
+            ret = process_set_config_cmd(mors, req, argc, argv);
             if (ret)
             {
                 goto exit;
@@ -928,20 +812,26 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
             if (mors->debug)
             {
                 mctrl_print("Setting standby configuration:\n");
-                mctrl_print("deep sleep inactivity period: %d\n",
-                        cmd->config.bss_inactivity_before_deep_sleep_s);
-                mctrl_print("deep_sleep period: %d\n", cmd->config.deep_sleep_period_s);
-                mctrl_print("notify period : %d\n", cmd->config.notify_period_s);
-                mctrl_print("dst port: %d\n", cmd->config.dst_port);
-                mctrl_print("dst ip: " IPSTR "\n", IP2STR(cmd->config.dst_ip.octet));
-                mctrl_print("src ip: " IPSTR "\n", IP2STR(cmd->config.src_ip.octet));
+                mctrl_print("  Deep sleep inactivity period: %d\n",
+                        req->config.bss_inactivity_before_deep_sleep_s);
+                mctrl_print("  Deep_sleep period: %d\n", req->config.deep_sleep_period_s);
+                mctrl_print("  Deep sleep scan iterations: %d\n",
+                        req->config.deep_sleep_scan_iterations);
+                mctrl_print("  Notify period : %d\n", req->config.notify_period_s);
+                mctrl_print("  Dst port: %d\n", req->config.dst_port);
+                ipv4_addr_t dst_ip, src_ip;
+                dst_ip.as_u32 = le32toh(req->config.src_ip);
+                src_ip.as_u32 = le32toh(req->config.dst_ip);
+
+                mctrl_print("  Dst ip: " IPSTR "\n", IP2STR(dst_ip.octet));
+                mctrl_print("  Src ip: " IPSTR "\n", IP2STR(src_ip.octet));
             }
 
             break;
         }
-        case STANDBY_MODE_CMD_SET_STATUS_PAYLOAD:
+        case MORSE_CMD_STANDBY_MODE_SET_STATUS_PAYLOAD:
         {
-            ret = process_set_status_payload(cmd, argc, argv);
+            ret = process_set_status_payload(req, argc, argv);
             if (ret)
             {
                 goto exit;
@@ -949,16 +839,16 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
 
             break;
         }
-        case STANDBY_MODE_CMD_ENTER:
+        case MORSE_CMD_STANDBY_MODE_ENTER:
         {
-            ret = process_standby_enter(mors, cmd, argc, argv);
+            ret = process_standby_enter(mors, req, argc, argv);
             if (ret)
             {
                 goto exit;
             }
             break;
         }
-        case STANDBY_MODE_CMD_EXIT:
+        case MORSE_CMD_STANDBY_MODE_EXIT:
             ret = process_standby_exit(mors, argc, argv);
             if (ret)
             {
@@ -970,10 +860,10 @@ int standby(struct morsectrl *mors, int argc, char *argv[])
             break;
     }
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_STANDBY_MODE,
-        cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_STANDBY_MODE,
+        req_tbuff, rsp_tbuff);
 
-    if (cmd->cmd == STANDBY_MODE_CMD_EXIT && ret == 0)
+    if (req->cmd == htole32(MORSE_CMD_STANDBY_MODE_EXIT) && ret == 0)
     {
         if (json)
         {
@@ -1001,7 +891,7 @@ exit:
         mm_free_argtable(subcmds[i]);
     }
 
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

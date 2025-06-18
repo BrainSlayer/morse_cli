@@ -13,82 +13,31 @@
 #include "utilities.h"
 
 
-enum dhcp_offload_opcode {
-    /** Enable the DHCP client */
-    MORSE_DHCP_CMD_ENABLE = 0,
-    /** Do a DHCP discovery and obtain a lease */
-    MORSE_DHCP_CMD_DO_DISCOVERY,
-    /** Return the current lease */
-    MORSE_DHCP_CMD_GET_LEASE,
-    /** Clear the current lease */
-    MORSE_DHCP_CMD_CLEAR_LEASE,
-    /** Trigger a renewal of the current lease */
-    MORSE_DHCP_CMD_RENEW_LEASE,
-    /** Trigger a rebinding of the current lease */
-    MORSE_DHCP_CMD_REBIND_LEASE,
-    /** Ask the FW to send a lease update event to the driver */
-    MORSE_DHCP_CMD_SEND_LEASE_UPDATE,
-    /** Force uint32 */
-    DHCP_CMD_LAST = UINT32_MAX
-};
-
-enum dhcp_offload_retcode {
-    /** Command completed successfully */
-    MORSE_DHCP_RET_SUCCESS = 0,
-    /** DHCP Client is disabled */
-    MORSE_DHCP_RET_NOT_ENABLED,
-    /** DHCP Client is already enabled */
-    MORSE_DHCP_RET_ALREADY_ENABLED,
-    /** No current bound lease */
-    MORSE_DHCP_RET_NO_LEASE,
-    /** DHCP client already has a lease */
-    MORSE_DHCP_RET_HAVE_LEASE,
-    /** DHCP client is currently busy (discovering or renewing) */
-    MORSE_DHCP_RET_BUSY,
-
-    /** Force uint32 */
-    MORSE_DHCP_RET_LAST = UINT32_MAX
-};
-
-struct PACKED command_dhcp_req
-{
-    uint32_t opcode;
-};
-
-struct PACKED command_dhcp_cfm
-{
-    uint32_t retcode;
-    ipv4_addr_t my_ip;
-    ipv4_addr_t netmask;
-    ipv4_addr_t router;
-    ipv4_addr_t dns;
-};
-
-static void print_error(enum dhcp_offload_retcode code)
+static void print_error(enum morse_cmd_dhcp_retcode code)
 {
     switch (code)
     {
-        case MORSE_DHCP_RET_NOT_ENABLED:
+        case MORSE_CMD_DHCP_RETCODE_NOT_ENABLED:
         {
             mctrl_err("DHCP client is not enabled\n");
             break;
         }
-        case MORSE_DHCP_RET_ALREADY_ENABLED:
+        case MORSE_CMD_DHCP_RETCODE_ALREADY_ENABLED:
         {
             mctrl_err("DHCP client is already enabled\n");
             break;
         }
-        case MORSE_DHCP_RET_NO_LEASE:
+        case MORSE_CMD_DHCP_RETCODE_NO_LEASE:
         {
             mctrl_err("DHCP client does not have a lease\n");
             break;
         }
-        case MORSE_DHCP_RET_HAVE_LEASE:
+        case MORSE_CMD_DHCP_RETCODE_HAVE_LEASE:
         {
             mctrl_err("DHCP client already has a lease\n");
             break;
         }
-        case MORSE_DHCP_RET_BUSY:
+        case MORSE_CMD_DHCP_RETCODE_BUSY:
         {
             mctrl_err("DHCP client is currently performing a discovery or renewal\n");
             break;
@@ -103,13 +52,6 @@ static void print_error(enum dhcp_offload_retcode code)
 static struct
 {
     struct arg_rex *option;
-    struct arg_rem *enable;
-    struct arg_rem *discover;
-    struct arg_rem *get;
-    struct arg_rem *clear;
-    struct arg_rem *renew;
-    struct arg_rem *rebind;
-    struct arg_rem *update;
 } args;
 
 int dhcpc_init(struct morsectrl *mors, struct mm_argtable *mm_args)
@@ -117,22 +59,26 @@ int dhcpc_init(struct morsectrl *mors, struct mm_argtable *mm_args)
     MM_INIT_ARGTABLE(mm_args, "Configure DHCP client offload",
         args.option = arg_rex1(NULL, NULL, "(enable|discover|get|clear|renew|rebind|update)",
              "{enable|discover|get|clear|renew|rebind|update}", 0, NULL),
-        args.enable = arg_rem("enable", "Enable DHCP client"),
-        args.discover = arg_rem("discover", "Do a discovery and obtain a lease"),
-        args.get = arg_rem("get", "Get the current lease"),
-        args.clear = arg_rem("clear", "Clear the current lease"),
-        args.renew = arg_rem("renew", "Renew the current lease"),
-        args.rebind = arg_rem("rebind", "Rebind the current lease"),
-        args.update = arg_rem("update", "Send a lease update to the driver"));
+        arg_rem("enable", "Enable DHCP client"),
+        arg_rem("discover", "Do a discovery and obtain a lease"),
+        arg_rem("get", "Get the current lease"),
+        arg_rem("clear", "Clear the current lease"),
+        arg_rem("renew", "Renew the current lease"),
+        arg_rem("rebind", "Rebind the current lease"),
+        arg_rem("update", "Send a lease update to the driver"));
     return 0;
 }
 
 int dhcpc(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = 0;
+    ipv4_addr_t my_ip;
+    ipv4_addr_t netmask;
+    ipv4_addr_t router;
+    ipv4_addr_t dns;
 
-    struct command_dhcp_req *cmd_dhcp;
-    struct command_dhcp_cfm *rsp_dhcp;
+    struct morse_cmd_req_dhcp_offload *cmd_dhcp;
+    struct morse_cmd_resp_dhcp_offload *rsp_dhcp;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
 
@@ -144,8 +90,8 @@ int dhcpc(struct morsectrl *mors, int argc, char *argv[])
         goto exit;
     }
 
-    cmd_dhcp = TBUFF_TO_CMD(cmd_tbuff, struct command_dhcp_req);
-    rsp_dhcp = TBUFF_TO_RSP(rsp_tbuff, struct command_dhcp_cfm);
+    cmd_dhcp = TBUFF_TO_REQ(cmd_tbuff, struct morse_cmd_req_dhcp_offload);
+    rsp_dhcp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_dhcp_offload);
 
     if (cmd_dhcp == NULL ||
         rsp_dhcp == NULL)
@@ -159,35 +105,35 @@ int dhcpc(struct morsectrl *mors, int argc, char *argv[])
 
     if (strcmp(args.option->sval[0], "enable") == 0)
     {
-        cmd_dhcp->opcode = MORSE_DHCP_CMD_ENABLE;
+        cmd_dhcp->opcode = htole32(MORSE_CMD_DHCP_OPCODE_ENABLE);
     }
     else if (strcmp(args.option->sval[0], "discover") == 0)
     {
-        cmd_dhcp->opcode = MORSE_DHCP_CMD_DO_DISCOVERY;
+        cmd_dhcp->opcode = htole32(MORSE_CMD_DHCP_OPCODE_DO_DISCOVERY);
     }
     else if (strcmp(args.option->sval[0], "get") == 0)
     {
-        cmd_dhcp->opcode = MORSE_DHCP_CMD_GET_LEASE;
+        cmd_dhcp->opcode = htole32(MORSE_CMD_DHCP_OPCODE_GET_LEASE);
     }
     else if (strcmp(args.option->sval[0], "clear") == 0)
     {
-        cmd_dhcp->opcode = MORSE_DHCP_CMD_CLEAR_LEASE;
+        cmd_dhcp->opcode = htole32(MORSE_CMD_DHCP_OPCODE_CLEAR_LEASE);
     }
     else if (strcmp(args.option->sval[0], "renew") == 0)
     {
-        cmd_dhcp->opcode = MORSE_DHCP_CMD_RENEW_LEASE;
+        cmd_dhcp->opcode = htole32(MORSE_CMD_DHCP_OPCODE_RENEW_LEASE);
     }
     else if (strcmp(args.option->sval[0], "rebind") == 0)
     {
-        cmd_dhcp->opcode = MORSE_DHCP_CMD_REBIND_LEASE;
+        cmd_dhcp->opcode = htole32(MORSE_CMD_DHCP_OPCODE_REBIND_LEASE);
     }
     else if (strcmp(args.option->sval[0], "update") == 0)
     {
-        cmd_dhcp->opcode = MORSE_DHCP_CMD_SEND_LEASE_UPDATE;
+        cmd_dhcp->opcode = htole32(MORSE_CMD_DHCP_OPCODE_SEND_LEASE_UPDATE);
     }
 
     ret = morsectrl_send_command(mors->transport,
-                                 MORSE_COMMAND_DHCP_OFFLOAD,
+                                 MORSE_CMD_ID_DHCP_OFFLOAD,
                                  cmd_tbuff,
                                  rsp_tbuff);
 
@@ -195,26 +141,30 @@ int dhcpc(struct morsectrl *mors, int argc, char *argv[])
     {
         goto exit;
     }
-    else if (rsp_dhcp->retcode != MORSE_DHCP_RET_SUCCESS)
+    else if (rsp_dhcp->retcode != MORSE_CMD_DHCP_RETCODE_SUCCESS)
     {
-        print_error(rsp_dhcp->retcode);
+        print_error(le32toh(rsp_dhcp->retcode));
         goto exit;
     }
     else
     {
-        if (cmd_dhcp->opcode == MORSE_DHCP_CMD_GET_LEASE)
+        if (le32toh(cmd_dhcp->opcode) == MORSE_CMD_DHCP_OPCODE_GET_LEASE)
         {
+            my_ip.as_u32 = le32toh(rsp_dhcp->my_ip);
+            netmask.as_u32 = le32toh(rsp_dhcp->netmask);
+            router.as_u32 = le32toh(rsp_dhcp->router);
+            dns.as_u32 = le32toh(rsp_dhcp->dns);
             mctrl_print("Current DHCP Lease\n");
-            mctrl_print("IP Address: %d.%d.%d.%d\n", rsp_dhcp->my_ip.octet[0],
-                    rsp_dhcp->my_ip.octet[1], rsp_dhcp->my_ip.octet[2], rsp_dhcp->my_ip.octet[3]);
-            mctrl_print("Netmask: %d.%d.%d.%d\n", rsp_dhcp->netmask.octet[0],
-                    rsp_dhcp->netmask.octet[1], rsp_dhcp->netmask.octet[2],
-                    rsp_dhcp->netmask.octet[3]);
-            mctrl_print("Router Address: %d.%d.%d.%d\n", rsp_dhcp->router.octet[0],
-                    rsp_dhcp->router.octet[1], rsp_dhcp->router.octet[2],
-                    rsp_dhcp->router.octet[3]);
-            mctrl_print("DNS Address: %d.%d.%d.%d\n", rsp_dhcp->dns.octet[0],
-                    rsp_dhcp->dns.octet[1], rsp_dhcp->dns.octet[2], rsp_dhcp->dns.octet[3]);
+            mctrl_print("IP Address: %d.%d.%d.%d\n", my_ip.octet[0],
+                    my_ip.octet[1], my_ip.octet[2], my_ip.octet[3]);
+            mctrl_print("Netmask: %d.%d.%d.%d\n", netmask.octet[0],
+                    netmask.octet[1], netmask.octet[2],
+                    netmask.octet[3]);
+            mctrl_print("Router Address: %d.%d.%d.%d\n", router.octet[0],
+                    router.octet[1], router.octet[2],
+                    router.octet[3]);
+            mctrl_print("DNS Address: %d.%d.%d.%d\n", dns.octet[0],
+                    dns.octet[1], dns.octet[2], dns.octet[3]);
         }
     }
 

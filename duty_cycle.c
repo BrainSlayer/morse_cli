@@ -18,58 +18,6 @@
 #define DUTY_CYCLE_MIN      0.01
 #define DUTY_CYCLE_MAX      100.0
 
-#define DUTY_CYCLE_SET_CFG_DUTY_CYCLE         BIT(0)
-#define DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP  BIT(1)
-#define DUTY_CYCLE_SET_CFG_EXT                BIT(2)
-#define DUTY_CYCLE_SET_CFG_BURST_RECORD_UNIT  BIT(3)
-
-enum duty_cycle_mode
-{
-    DUTY_CYCLE_MODE_SPREAD = 0,
-    DUTY_CYCLE_MODE_BURST = 1,
-    DUTY_CYCLE_MODE_LAST = DUTY_CYCLE_MODE_BURST,
-};
-
-struct PACKED duty_cycle_configuration
-{
-    /** Omit control responses from duty cycle budget */
-    uint8_t omit_control_responses;
-    /** Target duty cycle in 100th of a %, i.e. 1..10000 */
-    uint32_t duty_cycle;
-};
-
-struct PACKED duty_cycle_set_configuration_ext
-{
-    /** The length of each burst record in the window (us) - applicable in burst mode only */
-    uint32_t burst_record_unit_us;
-    /** Duty cycle mode, see @ref enum duty_cycle_mode */
-    uint8_t mode;
-};
-
-struct PACKED duty_cycle_configuration_ext
-{
-    /** Airtime remaining (us) - applicable in burst mode only */
-    uint32_t airtime_remaining_us;
-    /** Burst window duration (us) - applicable in burst mode only */
-    uint32_t burst_window_duration_us;
-    /** Extension parameters that are configured */
-    struct duty_cycle_set_configuration_ext set;
-};
-
-/** Set duty cycle command */
-struct PACKED command_set_duty_cycle_req
-{
-    struct duty_cycle_configuration config;
-    uint8_t set_cfgs;
-    struct duty_cycle_set_configuration_ext config_ext;
-};
-
-struct PACKED command_get_duty_cycle_cfm
-{
-    struct duty_cycle_configuration config;
-    struct duty_cycle_configuration_ext config_ext;
-};
-
 enum duty_cycle_cmd
 {
     DUTY_CYCLE_CMD_DISABLE,
@@ -117,21 +65,21 @@ static int duty_cycle_parse_cmd(const char *str)
 static int get_duty_cycle(struct morsectrl *mors, bool burst_airtime_only)
 {
     int ret = -1;
-    struct command_set_duty_cycle_req *cmd;
-    struct command_get_duty_cycle_cfm *resp;
-    struct morsectrl_transport_buff *cmd_tbuff =
-        morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    struct morse_cmd_req_set_duty_cycle *req;
+    struct morse_cmd_resp_get_duty_cycle *resp;
+    struct morsectrl_transport_buff *req_tbuff =
+        morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     struct morsectrl_transport_buff *rsp_tbuff =
         morsectrl_transport_resp_alloc(mors->transport, sizeof(*resp));
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_set_duty_cycle_req);
-    resp = TBUFF_TO_RSP(rsp_tbuff, struct command_get_duty_cycle_cfm);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_duty_cycle);
+    resp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_get_duty_cycle);
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_GET_DUTY_CYCLE,
-                                     cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_GET_DUTY_CYCLE,
+                                     req_tbuff, rsp_tbuff);
 
     if (ret < 0)
     {
@@ -141,7 +89,7 @@ static int get_duty_cycle(struct morsectrl *mors, bool burst_airtime_only)
 
     if (burst_airtime_only)
     {
-        if (resp->config_ext.set.mode == DUTY_CYCLE_MODE_BURST)
+        if (resp->config_ext.set.mode == MORSE_CMD_DUTY_CYCLE_MODE_BURST)
         {
             mctrl_print("%u\n", resp->config_ext.airtime_remaining_us);
         }
@@ -155,12 +103,12 @@ static int get_duty_cycle(struct morsectrl *mors, bool burst_airtime_only)
     }
 
     mctrl_print("Mode: %s\n",
-            (resp->config_ext.set.mode == DUTY_CYCLE_MODE_BURST) ? "burst" : "spread");
-    mctrl_print("Configured duty cycle: %.2f%%\n", (float)(resp->config.duty_cycle) / 100);
+            (resp->config_ext.set.mode == MORSE_CMD_DUTY_CYCLE_MODE_BURST) ? "burst" : "spread");
+    mctrl_print("Configured duty cycle: %.2f%%\n", (float)(le32toh(resp->config.duty_cycle)) / 100);
     mctrl_print("Control responses omitted from duty cycle calculation: %d\n",
             resp->config.omit_control_responses);
 
-    if (resp->config_ext.set.mode == DUTY_CYCLE_MODE_BURST)
+    if (resp->config_ext.set.mode == MORSE_CMD_DUTY_CYCLE_MODE_BURST)
     {
         mctrl_print("Airtime remaining (us): %u\n", resp->config_ext.airtime_remaining_us);
         mctrl_print("Burst window duration (us): %u\n",
@@ -168,64 +116,65 @@ static int get_duty_cycle(struct morsectrl *mors, bool burst_airtime_only)
     }
 
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }
 
-static int set_duty_cycle(struct morsectrl *mors, struct duty_cycle_configuration *cfg,
-                          struct duty_cycle_set_configuration_ext *cfg_ext, uint8_t set_cfgs)
+static int set_duty_cycle(struct morsectrl *mors, struct morse_cmd_duty_cycle_configuration *cfg,
+                          struct morse_cmd_duty_cycle_set_configuration_ext *cfg_ext,
+                          uint8_t set_cfgs)
 {
     int ret = -1;
-    struct command_set_duty_cycle_req *cmd;
-    struct morsectrl_transport_buff *cmd_tbuff =
-        morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    struct morse_cmd_req_set_duty_cycle *req;
+    struct morsectrl_transport_buff *req_tbuff =
+        morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     struct morsectrl_transport_buff *rsp_tbuff =
         morsectrl_transport_resp_alloc(mors->transport, 0);
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit_set;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_set_duty_cycle_req);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_duty_cycle);
 
-    memset(cmd, 0, sizeof(*cmd));
+    memset(req, 0, sizeof(*req));
 
     /* Range checked by caller */
-    cmd->set_cfgs = set_cfgs;
-    cmd->config.duty_cycle = cfg->duty_cycle;
-    cmd->config.omit_control_responses = cfg->omit_control_responses;
+    req->set_cfgs = set_cfgs;
+    req->config.duty_cycle = cfg->duty_cycle;
+    req->config.omit_control_responses = cfg->omit_control_responses;
 
-    if (cmd->set_cfgs & DUTY_CYCLE_SET_CFG_EXT)
+    if (req->set_cfgs & MORSE_CMD_DUTY_CYCLE_SET_CFG_EXT)
     {
-        cmd->config_ext.mode = cfg_ext->mode;
-        if (cmd->set_cfgs & DUTY_CYCLE_SET_CFG_BURST_RECORD_UNIT)
+        req->config_ext.mode = cfg_ext->mode;
+        if (req->set_cfgs & MORSE_CMD_DUTY_CYCLE_SET_CFG_BURST_RECORD_UNIT)
         {
-            cmd->config_ext.burst_record_unit_us = cfg_ext->burst_record_unit_us;
+            req->config_ext.burst_record_unit_us = cfg_ext->burst_record_unit_us;
         }
     }
 
     /* Send duty cycle command directly to the firmware if driver commands are not supported. */
     if (morsectrl_transport_has_driver(mors->transport))
     {
-        ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_DRIVER_SET_DUTY_CYCLE,
-                                     cmd_tbuff, rsp_tbuff);
+        ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_DRIVER_SET_DUTY_CYCLE,
+                                     req_tbuff, rsp_tbuff);
     }
     else
     {
-        ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_DUTY_CYCLE,
-                                     cmd_tbuff, rsp_tbuff);
+        ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_DUTY_CYCLE,
+                                     req_tbuff, rsp_tbuff);
     }
 
 exit_set:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }
 
 int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
 {
-    struct duty_cycle_configuration cfg = { 0 };
-    struct duty_cycle_set_configuration_ext cfg_ext = { 0 };
+    struct morse_cmd_duty_cycle_configuration cfg = { 0 };
+    struct morse_cmd_duty_cycle_set_configuration_ext cfg_ext = { 0 };
     uint8_t set_cfgs = 0;
 
     if (args.enable->count == 0)
@@ -234,14 +183,14 @@ int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
         return get_duty_cycle(mors, false);
     }
 
-    int cmd = duty_cycle_parse_cmd(args.enable->sval[0]);
+    int req = duty_cycle_parse_cmd(args.enable->sval[0]);
 
-    if (cmd == DUTY_CYCLE_CMD_AIRTIME)
+    if (req == DUTY_CYCLE_CMD_AIRTIME)
     {
         /* User want's to get airtime information */
         return get_duty_cycle(mors, true);
     }
-    if (cmd == DUTY_CYCLE_CMD_ENABLE)
+    if (req == DUTY_CYCLE_CMD_ENABLE)
     {
         float duty_cycle;
 
@@ -252,8 +201,8 @@ int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
         }
 
         /* Specify what is being set in this command */
-        set_cfgs |= DUTY_CYCLE_SET_CFG_DUTY_CYCLE;
-        set_cfgs |= DUTY_CYCLE_SET_CFG_EXT;
+        set_cfgs |= MORSE_CMD_DUTY_CYCLE_SET_CFG_DUTY_CYCLE;
+        set_cfgs |= MORSE_CMD_DUTY_CYCLE_SET_CFG_EXT;
 
         /* Parse duty cycle settings */
         duty_cycle = args.value->dval[0];
@@ -264,13 +213,13 @@ int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
             return -1;
         }
 
-        cfg.duty_cycle = (uint32_t)(duty_cycle * 100);
-        cfg_ext.mode = DUTY_CYCLE_MODE_SPREAD; /* default mode */
+        cfg.duty_cycle = htole32(duty_cycle * 100);
+        cfg_ext.mode = MORSE_CMD_DUTY_CYCLE_MODE_SPREAD; /* default mode */
 
         if (args.omit_cr->count)
         {
             cfg.omit_control_responses = 1;
-            set_cfgs |= DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP;
+            set_cfgs |= MORSE_CMD_DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP;
         }
 
         if (args.mode->count)
@@ -279,10 +228,10 @@ int duty_cycle(struct morsectrl *mors, int argc, char *argv[])
         }
 
     }
-    else if (cmd == DUTY_CYCLE_CMD_DISABLE)
+    else if (req == DUTY_CYCLE_CMD_DISABLE)
     {
-        set_cfgs |= DUTY_CYCLE_SET_CFG_DUTY_CYCLE;
-        cfg.duty_cycle = (uint32_t)(100 * 100); /* 100% dc indicates disabled */
+        set_cfgs |= MORSE_CMD_DUTY_CYCLE_SET_CFG_DUTY_CYCLE;
+        cfg.duty_cycle = htole32(100 * 100); /* 100% dc indicates disabled */
     }
 
     return set_duty_cycle(mors, &cfg, &cfg_ext, set_cfgs);

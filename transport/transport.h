@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
-#pragma once
+#ifndef TRANSPORT_TRANSPORT_H_
+#define TRANSPORT_TRANSPORT_H_ 1
 
 
 #include <stdint.h>
@@ -24,7 +25,7 @@ enum moresctrl_transport_errnum
 };
 
 /* Helper macros :) */
-#define TBUFF_TO_CMD(cmd_tbuf, cmdtype) ((cmdtype *)((struct command *)cmd_tbuf->data)->data)
+#define TBUFF_TO_REQ(req_tbuf, cmdtype) ((cmdtype *)((struct request *)req_tbuf->data)->data)
 #define TBUFF_TO_RSP(rsp_tbuf, cmdtype) ((cmdtype *)((struct response *)rsp_tbuf->data)->data)
 
 #define MAX_SERIAL_NUMBER_LEN (16)
@@ -179,12 +180,12 @@ int morsectrl_transport_mem_write(struct morsectrl_transport *transport,
  * @brief Send a command using the specified transport.
  *
  * @param transport Transport to send the command on.
- * @param cmd       Buffer containing command to send.
+ * @param req       Buffer containing command to send.
  * @param resp      Buffer to received response into.
  * @return          0 on success or relevant error.
  */
 int morsectrl_transport_send(struct morsectrl_transport *transport,
-                             struct morsectrl_transport_buff *cmd,
+                             struct morsectrl_transport_buff *req,
                              struct morsectrl_transport_buff *resp);
 
 /**
@@ -295,3 +296,5 @@ void morsectrl_transport_err(const char *prefix, int error_code, const char *err
  * @param ...       Optional printf arguments.
  */
 void morsectrl_transport_debug(struct morsectrl_transport *transport, const char *fmt, ...);
+
+#endif // TRANSPORT_TRANSPORT_H_

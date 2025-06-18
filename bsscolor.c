@@ -13,12 +13,6 @@
 
 #include "command.h"
 
-struct PACKED set_bss_color
-{
-    /** The BSS color */
-    uint8_t bss_color;
-};
-
 static struct
 {
     struct arg_int *bsscolor;
@@ -35,25 +29,25 @@ int bsscolor(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     uint32_t color;
-    struct set_bss_color *cmd;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_set_bss_color *req;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(0));
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_bss_color);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_bss_color);
 
     color = args.bsscolor->ival[0];
 
-    cmd->bss_color = htole32(color);
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_BSS_COLOR,
-                                 cmd_tbuff, rsp_tbuff);
+    req->bss_color = color;
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_BSS_COLOR,
+                                 req_tbuff, rsp_tbuff);
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

@@ -42,26 +42,30 @@ int64_t get_signed_value_as_int64(const uint8_t *buf, uint32_t size)
         {
             int8_t x;
             memcpy(&x, buf, size);
-            n = (int64_t)x;
+            n = (int8_t)x;
             break;
         }
         case 2:
         {
-            int16_t x;
+            __le16 x;
             memcpy(&x, buf, size);
-            n = (int64_t)x;
+            n = (int16_t)le16toh(x);
             break;
         }
         case 4:
         {
-            int32_t x;
+            __le32 x;
             memcpy(&x, buf, size);
-            n = (int64_t)x;
+            n = (int32_t)le32toh(x);
             break;
         }
         case 8:
-            memcpy(&n, buf, size);
+        {
+            __le64 x;
+            memcpy(&x, buf, size);
+            n = (int64_t) le64toh(x);
             break;
+        }
         default:
             mctrl_err("get_signed_value_as_int64 can't convert %d-byte quantity\n", size);
             break;
@@ -78,26 +82,29 @@ uint64_t get_unsigned_value_as_uint64(const uint8_t *buf, uint32_t size)
         {
             uint8_t x;
             memcpy(&x, buf, size);
-            n = (uint64_t)x;
             break;
         }
         case 2:
         {
-            uint16_t x;
+            __le16 x;
             memcpy(&x, buf, size);
-            n = (uint64_t)x;
+            n = (uint64_t) le16toh(x);
             break;
         }
         case 4:
         {
-            uint32_t x;
+            __le32 x;
             memcpy(&x, buf, size);
-            n = (uint64_t)x;
+            n = (uint64_t) le32toh(x);
             break;
         }
         case 8:
-            memcpy(&n, buf, size);
+        {
+            __le64 x;
+            memcpy(&x, buf, size);
+            n = (uint64_t) le64toh(x);
             break;
+        }
         default:
             mctrl_err("get_unsigned_value_as_uint64 can't convert %d-byte quantity\n", size);
             break;

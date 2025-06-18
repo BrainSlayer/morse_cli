@@ -3730,6 +3730,11 @@ static int arg_llong_scanfn(struct arg_llong* parent, const char* argval) {
             return ARG_ERR_BADINT;
         }
 
+        if (val < parent->minval || val > parent->maxval)
+        {
+            errorcode = ARG_ERR_RANGE;
+        }
+
         /* if success then store result in parent->ival[] array */
         if (errorcode == 0)
             parent->ival[parent->count++] = (long long int)val;
@@ -3775,18 +3780,35 @@ static void arg_llong_errorfn(struct arg_llong* parent, arg_dstr_t ds, int error
             arg_print_option_ds(ds, shortopts, longopts, datatype, " ");
             arg_dstr_catf(ds, "(%s is too large)\n", argval);
             break;
+
+        case ARG_ERR_RANGE:
+            arg_dstr_catf(ds, "integer %s out of range (%lld-%lld) for option ", argval, parent->minval, parent->maxval);
+            arg_print_option_ds(ds, shortopts, longopts, datatype, "\n");
+            break;
     }
 }
 
 struct arg_llong* arg_llong0(const char* shortopts, const char* longopts, const char* datatype, const char* glossary) {
-    return arg_llongn(shortopts, longopts, datatype, 0, 1, glossary);
+    return arg_rllongn(shortopts, longopts, datatype, 0, 1, LLONG_MIN, LLONG_MAX, glossary);
 }
 
 struct arg_llong* arg_llong1(const char* shortopts, const char* longopts, const char* datatype, const char* glossary) {
-    return arg_llongn(shortopts, longopts, datatype, 1, 1, glossary);
+    return arg_rllongn(shortopts, longopts, datatype, 1, 1, LLONG_MIN, LLONG_MAX, glossary);
 }
 
 struct arg_llong* arg_llongn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, const char* glossary) {
+    return arg_rllongn(shortopts, longopts, datatype, mincount, maxcount, LLONG_MIN, LLONG_MAX, glossary);
+}
+
+struct arg_llong* arg_rllong0(const char* shortopts, const char* longopts, const char* datatype, long long int minval, long long int maxval, const char* glossary) {
+    return arg_rllongn(shortopts, longopts, datatype, 0, 1, minval, maxval, glossary);
+}
+
+struct arg_llong* arg_rllong1(const char* shortopts, const char* longopts, const char* datatype, long long int minval, long long int maxval, const char* glossary) {
+    return arg_rllongn(shortopts, longopts, datatype, 1, 1, minval, maxval, glossary);
+}
+
+struct arg_llong* arg_rllongn(const char* shortopts, const char* longopts, const char* datatype, int mincount, int maxcount, long long int minval, long long int maxval, const char* glossary) {
     size_t nbytes;
     struct arg_llong* result;
 
@@ -3811,6 +3833,9 @@ struct arg_llong* arg_llongn(const char* shortopts, const char* longopts, const 
     result->hdr.scanfn = (arg_scanfn*)arg_llong_scanfn;
     result->hdr.checkfn = (arg_checkfn*)arg_llong_checkfn;
     result->hdr.errorfn = (arg_errorfn*)arg_llong_errorfn;
+
+    result->minval = minval;
+    result->maxval = maxval;
 
     /* store the ival[maxcount] array immediately after the arg_int struct */
     result->ival = (long long int*)(result + 1);

@@ -17,43 +17,8 @@
 
 #define OPCLASS_DEFAULT 0xFF
 
-/* S1G capabilities, from hostap */
-#define S1G_CAP0_S1G_LONG   BIT(0)
-#define S1G_CAP0_SGI_1MHZ   BIT(1)
-#define S1G_CAP0_SGI_2MHZ   BIT(2)
-#define S1G_CAP0_SGI_4MHZ   BIT(3)
-#define S1G_CAP0_SGI_8MHZ   BIT(4)
-#define S1G_CAP0_SGI_16MHZ  BIT(5)
-#define S1G_CAP0_SGI_ALL    ((S1G_CAP0_SGI_1MHZ | S1G_CAP0_SGI_2MHZ | \
-                             S1G_CAP0_SGI_4MHZ | S1G_CAP0_SGI_8MHZ))
-
-struct PACKED set_ecsa_command
-{
-    /** Centre frequency of the operating channel */
-    uint32_t operating_channel_freq_hz;
-
-    /** Global Operating class */
-    uint8_t opclass;
-
-    /** Pimary channel bw in MHz */
-    uint8_t primary_channel_bw_mhz;
-
-    /** 1MHz channel index */
-    uint8_t prim_1mhz_ch_idx;
-
-    /** Operating channel bandwidth in MHz */
-    uint8_t operating_channel_bw_mhz;
-
-    /** Global Operating class for primary chan */
-    uint8_t prim_opclass;
-
-    /** Configured S1G capabilities */
-    uint8_t s1g_cap0;
-    uint8_t s1g_cap1;
-    uint8_t s1g_cap2;
-    uint8_t s1g_cap3;
-};
-
+#define S1G_CAP0_SGI_ALL ((MORSE_CMD_S1G_CAP0_SGI_1MHZ | MORSE_CMD_S1G_CAP0_SGI_2MHZ | \
+                           MORSE_CMD_S1G_CAP0_SGI_4MHZ | MORSE_CMD_S1G_CAP0_SGI_8MHZ))
 static struct
 {
     struct arg_int *global_opclass;
@@ -92,17 +57,17 @@ int ecsa_info(struct morsectrl *mors, int argc, char *argv[])
     uint8_t primary_1Mhz_chan_idx = PRIMARY_1MHZ_CHANNEL_INDEX_DEFAULT;
     uint8_t prim_chan_global_op_class = OPCLASS_DEFAULT;
     uint32_t s1g_capab = 0;
-    struct set_ecsa_command *cmd;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_set_ecsa_s1g_info *req;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_ecsa_command);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_ecsa_s1g_info);
 
     global_operating_class = args.global_opclass->ival[0];
     primary_channel_bandwidth = args.prim_chan_bw->ival[0];
@@ -116,24 +81,23 @@ int ecsa_info(struct morsectrl *mors, int argc, char *argv[])
     if (args.s1g_capab->count)
         s1g_capab = args.s1g_capab->ival[0];
 
-    cmd->primary_channel_bw_mhz = primary_channel_bandwidth;
-    cmd->opclass = global_operating_class;
-    cmd->prim_1mhz_ch_idx = primary_1Mhz_chan_idx;
-    cmd->operating_channel_freq_hz = htole32(KHZ_TO_HZ(freq_khz));
-    cmd->operating_channel_bw_mhz = op_channel_bandwidth;
-    cmd->prim_opclass = prim_chan_global_op_class;
+    req->primary_channel_bw_mhz = primary_channel_bandwidth;
+    req->opclass = global_operating_class;
+    req->prim_1mhz_ch_idx = primary_1Mhz_chan_idx;
+    req->operating_channel_freq_hz = htole32(KHZ_TO_HZ(freq_khz));
+    req->operating_channel_bw_mhz = op_channel_bandwidth;
+    req->prim_opclass = prim_chan_global_op_class;
 
-    s1g_capab = htole32(s1g_capab);
-    cmd->s1g_cap0 = s1g_capab & 0xFF;
-    cmd->s1g_cap1 = (s1g_capab >> 8) & 0xFF;
-    cmd->s1g_cap2 = (s1g_capab >> 16) & 0xFF;
-    cmd->s1g_cap3 = (s1g_capab >> 24) & 0xFF;
+    req->s1g_cap0 = s1g_capab & 0xFF;
+    req->s1g_cap1 = (s1g_capab >> 8) & 0xFF;
+    req->s1g_cap2 = (s1g_capab >> 16) & 0xFF;
+    req->s1g_cap3 = (s1g_capab >> 24) & 0xFF;
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_ECSA_S1G_INFO,
-                                 cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_ECSA_S1G_INFO,
+                                 req_tbuff, rsp_tbuff);
 
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

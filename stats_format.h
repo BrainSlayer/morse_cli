@@ -35,7 +35,7 @@
  * A counter of the number of times an MPDU is received successfully for each position in the AMPDU
  **/
 typedef struct __attribute__((packed)) {
-    uint32_t bitmap[DOT11AH_NDP_MAX_BITMAP_BIT];
+    __le32 bitmap[DOT11AH_NDP_MAX_BITMAP_BIT];
 } ampdu_bitmap_t;
 
 /**
@@ -43,7 +43,7 @@ typedef struct __attribute__((packed)) {
  */
 typedef struct __attribute__((packed)) {
     /* This count starts at zero and goes to 16, so it's 17 elements */
-    uint32_t count[17];
+    __le32 count[17];
 } ampdu_count_t;
 
 #define MAC_MAX_RETRY_COUNT 10
@@ -52,27 +52,27 @@ typedef struct __attribute__((packed)) {
 #define APP_STATS_COUNT (MAC_MAX_RETRY_COUNT + 3)
 
 struct __attribute__((packed)) retry_stats {
-    uint64_t start, stop;
-    uint64_t sum[APP_STATS_COUNT];
-    uint32_t count[APP_STATS_COUNT];
+    __le64 start, stop;
+    __le64 sum[APP_STATS_COUNT];
+    __le32 count[APP_STATS_COUNT];
 };
 
 
 #define NUM_PAGESETS 2
 struct __attribute__((packed)) pageset_stats {
-    uint32_t pages_allocated[NUM_PAGESETS];
-    uint32_t pages_to_allocate[NUM_PAGESETS];
+    __le32 pages_allocated[NUM_PAGESETS];
+    __le32 pages_to_allocate[NUM_PAGESETS];
 };
 
 
 
 /** TX OP statistics, Note: Changes made to this struct must be reflected in statistics.py parser */
 struct __attribute__((packed)) txop_statistics {
-    uint64_t    duration;
-    uint32_t    count;
-    uint32_t    pkts;
-    uint32_t    max_pkts_in_txop;
-    uint32_t    lost_beacons;
+    __le64    duration;
+    __le32    count;
+    __le32    pkts;
+    __le32    max_pkts_in_txop;
+    __le32    lost_beacons;
     uint8_t     beacon_lost;
 };
 
@@ -82,53 +82,53 @@ struct __attribute__((packed)) txop_statistics {
  */
 typedef struct PACKED {
     /** Currently only supporting up to 8 assignments */
-    uint32_t assignments[8];
+    __le32 assignments[8];
     /** A counter of assignments that get truncated due to the next tbtt */
-    uint32_t assignments_truncated_from_tbtt;
+    __le32 assignments_truncated_from_tbtt;
     /** Number of invalid assignments (/unsupported) observed */
-    uint32_t invalid_assignments;
+    __le32 invalid_assignments;
     /** Number of assignments that are valid but system time has already passed */
-    uint32_t already_past_assignment;
+    __le32 already_past_assignment;
     /** ACI delayed frames due to RAW */
-    uint32_t aci_frames_delayed;
+    __le32 aci_frames_delayed;
     /** Broadcast / Multicast delayed frames due to RAW */
-    uint32_t bc_mc_frames_delayed;
+    __le32 bc_mc_frames_delayed;
     /** Absolute time frames delayed due to RAW */
-    uint32_t abs_frames_delayed;
+    __le32 abs_frames_delayed;
     /** Frames that could've been sent in the RAW but were too long for slot */
-    uint32_t frame_crosses_slot_delayed;
+    __le32 frame_crosses_slot_delayed;
 } raw_stats_t;
 
 typedef struct {
     /** A quiet calibration was granted */
-    uint32_t quiet_calibration_granted;
+    __le32 quiet_calibration_granted;
     /** A non-quiet calibration was granted */
-    uint32_t non_quiet_calibration_granted;
+    __le32 non_quiet_calibration_granted;
     /** A quiet calibration was in progress, but then cancelled */
-    uint32_t quiet_calibration_cancelled;
+    __le32 quiet_calibration_cancelled;
     /** A quiet calibration was rejected */
-    uint32_t quiet_calibration_rejected;
+    __le32 quiet_calibration_rejected;
     /** A quiet/non-quiet calibration completed */
-    uint32_t calibration_complete;
+    __le32 calibration_complete;
 } managed_calibration_stats_t;
 
 typedef struct
 {
     /** Total transmitter 'on air' (Tair) time in us */
-    uint64_t total_t_air;
+    __le64 total_t_air;
     /** Total transmitter 'blocked' (Toff) time in us */
-    uint64_t total_t_off;
+    __le64 total_t_off;
     /** Configured duty cycle restriction (100th of a percent). 10000 is no restriction. */
-    uint32_t target_duty_cycle;
+    __le32 target_duty_cycle;
     /** Number of packets ignoring duty cycle restrictions. */
-    uint32_t num_early;
+    __le32 num_early;
     /** Maximum time the t_off timer is started for */
-    uint64_t max_t_off;
+    __le64 max_t_off;
 } duty_cycle_stats_t;
 
 /** Histogram of how long each packet spent being handled inside the umac code. */
 typedef struct PACKED {
-    uint32_t buckets[9];
+    __le32 buckets[9];
 } umac_latency_histogram_t;
 
 struct PACKED stats_response
@@ -141,8 +141,8 @@ struct PACKED stats_response
  * A int32_t generic array
  **/
 typedef struct __attribute__((packed)) {
-    int16_t count;
-    int16_t array[];
+    __le16 count;
+    __le16 array[];
 } array_t;
 
 /** Enum type for printing format  */

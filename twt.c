@@ -30,43 +30,6 @@
 #define TWT_FLOW_ID_DATATYPE "<flow id>"
 #define TWT_FLOW_ID_GLOSSARY "Flow id for TWT agreement (0-" STR(TWT_MAX_FLOW_ID_VAL) ")"
 
-typedef enum {
-    TWT_CONF_SUBCMD_CONFIGURE,
-    TWT_CONF_SUBCMD_FORCE_INSTALL_AGREEMENT,
-    TWT_CONF_SUBCMD_REMOVE_AGREEMENT,
-    TWT_CONF_SUBCMD_CONFIGURE_EXPLICIT,
-} twt_subcommands_t;
-
-struct PACKED command_set_twt_conf {
-    /** The target wake time (TSF) for the first TWT service period */
-    uint64_t target_wake_time;
-    /** Wake interval (us) */
-    union {
-        uint64_t wake_interval_us;
-        struct {
-            uint16_t wake_interval_mantissa;
-            uint8_t wake_interval_exponent;
-            uint8_t __padding[5];
-        } explicit;
-    };
-    /** Minimum wake duration during TWT service period (us) */
-    uint32_t wake_duration_us;
-    /** TWT setup command to use (0: request, 1: suggest, 2: demand) */
-    uint8_t twt_setup_command;
-    uint8_t __padding[3];
-};
-
-struct PACKED command_twt_req {
-    /** TWT subcommands, see @ref twt_subcommands_t */
-    uint8_t cmd;
-    /** The flow (TWT) identifier for the agreement to set, install or remove */
-    uint8_t flow_id;
-    union {
-        uint8_t opaque[0];
-        struct command_set_twt_conf set_twt_conf;
-    };
-};
-
 static struct {
     struct arg_rex *command;
 } args;
@@ -133,8 +96,10 @@ int twt_help(void)
 
 static int twt_get_cmd(const char str[])
 {
-    if (strcmp("conf", str) == 0) return TWT_CONF_SUBCMD_CONFIGURE;
-    else if (strcmp("remove", str) == 0) return TWT_CONF_SUBCMD_REMOVE_AGREEMENT;
+    if (strcmp("conf", str) == 0)
+        return MORSE_CMD_TWT_CONF_OP_CONFIGURE;
+    else if (strcmp("remove", str) == 0)
+        return MORSE_CMD_TWT_CONF_OP_REMOVE_AGREEMENT;
     else
     {
         return -1;
@@ -146,9 +111,9 @@ int twt(struct morsectrl *mors, int argc, char *argv[])
     int cmd_id;
     int ret = -1;
     int i;
-    struct morsectrl_transport_buff *cmd_tbuff = NULL;
+    struct morsectrl_transport_buff *req_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
-    struct command_twt_req *twt_cmd = NULL;
+    struct morse_cmd_req_set_twt_conf *twt_req = NULL;
     uint8_t flow_id = 0; /* flow id always set to 0 for now */
     uint32_t wake_duration_us = 0;
     uint64_t wake_interval_us = 0;
@@ -161,14 +126,14 @@ int twt(struct morsectrl *mors, int argc, char *argv[])
     if (!rsp_tbuff)
         goto exit;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*twt_cmd));
-    if (!cmd_tbuff)
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*twt_req));
+    if (!req_tbuff)
         goto exit;
 
-    twt_cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_twt_req);
+    twt_req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_twt_conf);
     switch (cmd_id)
     {
-        case TWT_CONF_SUBCMD_CONFIGURE:
+        case MORSE_CMD_TWT_CONF_OP_CONFIGURE:
         {
             ret = mm_parse_argtable("twt conf", &configure, argc, argv);
             if (ret != 0)
@@ -202,14 +167,14 @@ int twt(struct morsectrl *mors, int argc, char *argv[])
                 setup_cmd = configure_args.setup_command->ival[0];
             }
 
-            twt_cmd->flow_id = flow_id;
-            twt_cmd->cmd = cmd_id;
-            twt_cmd->set_twt_conf.wake_interval_us = wake_interval_us;
-            twt_cmd->set_twt_conf.wake_duration_us = wake_duration_us;
-            twt_cmd->set_twt_conf.twt_setup_command = setup_cmd;
+            twt_req->flow_id = flow_id;
+            twt_req->opcode = cmd_id;
+            twt_req->wake_interval.wake_interval_us = htole64(wake_interval_us);
+            twt_req->wake_duration_us = htole32(wake_duration_us);
+            twt_req->twt_setup_command = setup_cmd;
             break;
         }
-        case TWT_CONF_SUBCMD_REMOVE_AGREEMENT:
+        case MORSE_CMD_TWT_CONF_OP_REMOVE_AGREEMENT:
         {
             ret = mm_parse_argtable("twt remove", &remove_cmd, argc, argv);
             if (ret != 0)
@@ -220,13 +185,13 @@ int twt(struct morsectrl *mors, int argc, char *argv[])
             {
                 flow_id = remove_args.flow_id->ival[0];
             }
-            twt_cmd->flow_id = flow_id;
-            twt_cmd->cmd = cmd_id;
+            twt_req->flow_id = flow_id;
+            twt_req->opcode = cmd_id;
         }
         break;
     }
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_TWT_SET_CONF, cmd_tbuff,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_TWT_CONF, req_tbuff,
             rsp_tbuff);
 
 exit:
@@ -236,11 +201,11 @@ exit:
         ret = 0;
     }
     else if (ret == 0 &&
-             (cmd_id == TWT_CONF_SUBCMD_CONFIGURE ||
-              cmd_id == TWT_CONF_SUBCMD_CONFIGURE_EXPLICIT ||
-              cmd_id == TWT_CONF_SUBCMD_FORCE_INSTALL_AGREEMENT))
+             (cmd_id == MORSE_CMD_TWT_CONF_OP_CONFIGURE ||
+              cmd_id == MORSE_CMD_TWT_CONF_OP_CONFIGURE_EXPLICIT ||
+              cmd_id == MORSE_CMD_TWT_CONF_OP_FORCE_INSTALL_AGREEMENT))
     {
-        if (twt_cmd != NULL)
+        if (twt_req != NULL)
         {
             mctrl_print("Installed TWT Agreement[flowid:%d]\n", flow_id);
             mctrl_print("    Wake interval: %" PRId64 " us\n",
@@ -251,14 +216,14 @@ exit:
             mctrl_print("    Implict: true\n");
         }
     }
-    else if (cmd_id == TWT_CONF_SUBCMD_REMOVE_AGREEMENT)
+    else if (cmd_id == MORSE_CMD_TWT_CONF_OP_REMOVE_AGREEMENT)
     {
-        mctrl_print("Removed TWT Agreement[flowid:%d]\n", twt_cmd->flow_id);
+        mctrl_print("Removed TWT Agreement[flowid:%d]\n", twt_req->flow_id);
     }
 
-    if (cmd_tbuff)
+    if (req_tbuff)
     {
-        morsectrl_transport_buff_free(cmd_tbuff);
+        morsectrl_transport_buff_free(req_tbuff);
     }
     if (rsp_tbuff)
     {

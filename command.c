@@ -13,31 +13,29 @@
 
 #include "command.h"
 
-#define MORSECTRL_CMD_REQ_FLAG      (BIT(0))
-
 int morsectrl_send_command(struct morsectrl_transport *transport,
                            int message_id,
-                           struct morsectrl_transport_buff *cmd,
+                           struct morsectrl_transport_buff *req,
                            struct morsectrl_transport_buff *resp)
 {
     int ret = 0;
-    struct command *command;
+    struct request *request;
     struct response *response;
 
-    if (!cmd || !resp)
+    if (!req || !resp)
     {
         ret = -ENOMEM;
         goto exit;
     }
 
-    command = (struct command *)cmd->data;
-    memset(&command->hdr, 0, sizeof(command->hdr));
-    command->hdr.message_id = htole16(message_id);
-    command->hdr.len = htole16(cmd->data_len - sizeof(struct command));
-    command->hdr.flags = MORSECTRL_CMD_REQ_FLAG;
+    request = (struct request *)req->data;
+    memset(&request->hdr, 0, sizeof(request->hdr));
+    request->hdr.message_id = htole16(message_id);
+    request->hdr.len = htole16(req->data_len - sizeof(struct request));
+    request->hdr.flags = htole16(MORSE_CMD_TYPE_REQ);
     response = (struct response *)resp->data;
 
-    ret = morsectrl_transport_send(transport, cmd, resp);
+    ret = morsectrl_transport_send(transport, req, resp);
 
     if (ret < 0)
     {
@@ -45,7 +43,7 @@ int morsectrl_send_command(struct morsectrl_transport *transport,
         goto exit;
     }
 
-    ret = le32toh(response->status);
+    ret = response->status;
     if (ret)
     {
         if (ret != 110)

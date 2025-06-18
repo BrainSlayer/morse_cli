@@ -13,7 +13,7 @@ Q = @
 endif
 
 
-override MORSECTRL_VERSION_STRING = "rel_1_14_1_2024_Dec_05"
+override MORSECTRL_VERSION_STRING = "rel_1_15_3_2025_Apr_16"
 DEFAULT_INTERFACE_NAME ?= "wlan0"
 PKG_CONFIG ?= pkg-config
 
@@ -71,8 +71,11 @@ SRCS += li.c
 SRCS += whitelist.c
 SRCS += arp_periodic_refresh.c
 SRCS += otp.c
+SRCS += boardtype.c
+SRCS += country_code.c
 SRCS += power.c
 SRCS += rc_stats.c
+SRCS += tcp_periodic.c
 
 SRCS += transport/transport.c
 
@@ -92,8 +95,11 @@ ifeq ($(CONFIG_MORSE_TRANS_NL80211),1)
 	ifeq ($(CFLAGS),)
 		LINUX_CFLAGS += -I${SYSROOT}/usr/include/libnl3
 	endif
-
-	LINUX_LDFLAGS += -lnl-3 -lnl-genl-3 -lpthread
+	ifeq ($(CONFIG_ANDROID),1)
+		LINUX_LDFLAGS += -lnl
+	else
+		LINUX_LDFLAGS += -lnl-3 -lnl-genl-3 -lpthread
+	endif
 	LINUX_CFLAGS += -DENABLE_TRANS_NL80211
 	LINUX_SRCS += transport/nl80211.c
 endif
@@ -133,9 +139,14 @@ ifeq ($(CONFIG_MORSE_TRANS_FTDI_SPI),1)
 	MORSECTRL_LDFLAGS += -Wl,--wrap=memcpy
 
 	LINUX_CFLAGS += -D_GNU_SOURCE
-	LINUX_LDFLAGS += -lpthread -lrt -ldl
+	ifeq ($(CONFIG_ANDROID),1)
+		LINUX_LDFLAGS += -ldl
+	else
+		LINUX_LDFLAGS += -lpthread -lrt -ldl
+	endif
 endif
 
+ifneq ($(CONFIG_ANDROID),1)
 LINUX_SRCS += usb.c
 
 ifneq (,$(shell which $(PKG_CONFIG)))
@@ -143,6 +154,7 @@ ifneq (,$(shell which $(PKG_CONFIG)))
 	LINUX_LDFLAGS += $(shell $(PKG_CONFIG) --libs libusb-1.0)
 else
 	LINUX_LDFLAGS += -lusb-1.0
+endif
 endif
 
 MORSE_CLI_CFLAGS = $(MORSECTRL_CFLAGS)
@@ -192,3 +204,4 @@ morse_cli_win: $(CLIENT_OBJS_WIN)
 install_cli:
 	@echo Installing morse_cli to /usr/bin
 	$(Q) cp morse_cli /usr/bin
+

@@ -229,7 +229,7 @@ static int uart_slip_tx_char(uint8_t c, void *arg)
 }
 
 static int uart_slip_send(struct morsectrl_transport *transport,
-                         struct morsectrl_transport_buff *cmd,
+                         struct morsectrl_transport_buff *req,
                          struct morsectrl_transport_buff *resp)
 {
     struct uart_ctx *ctx;
@@ -243,20 +243,20 @@ static int uart_slip_send(struct morsectrl_transport *transport,
     struct slip_rx_state slip_rx_state = SLIP_RX_STATE_INIT(resp->data, resp->capacity);
     enum slip_rx_status slip_rx_status = SLIP_RX_IN_PROGRESS;
 
-    if (!transport || !transport->tops || !cmd || !resp)
+    if (!transport || !transport->tops || !req || !resp)
     {
         return -ETRANSERR;
     }
 
     /* We need to restore the data_len field before the function returns, so we stash the
      * value here. */
-    original_cmd_data_len = cmd->data_len;
+    original_cmd_data_len = req->data_len;
 
     /* Append random sequence number */
-    cmd_seq_num_field = cmd->data + cmd->data_len;
-    cmd->data_len += SEQNUM_LEN;
-    MCTRL_ASSERT(cmd->data_len <= cmd->capacity, "Tx buffer insufficient (%u < %u)",
-                 cmd->capacity, cmd->data_len);
+    cmd_seq_num_field = req->data + req->data_len;
+    req->data_len += SEQNUM_LEN;
+    MCTRL_ASSERT(req->data_len <= req->capacity, "Tx buffer insufficient (%u < %u)",
+                 req->capacity, req->data_len);
     for (i = 0; i < SEQNUM_LEN; i++)
     {
         /* NOLINTNEXTLINE(runtime/threadsafe_fn)*/
@@ -264,17 +264,17 @@ static int uart_slip_send(struct morsectrl_transport *transport,
     }
 
     /* Append CRC16 */
-    crc = crc16_gen(cmd->data, cmd->data_len);
-    crc_field = cmd->data + cmd->data_len;
-    cmd->data_len += CRC_LEN;
-    MCTRL_ASSERT(cmd->data_len <= cmd->capacity, "Tx buffer insufficient (%u < %u)",
-                 cmd->capacity, cmd->data_len);
+    crc = crc16_gen(req->data, req->data_len);
+    crc_field = req->data + req->data_len;
+    req->data_len += CRC_LEN;
+    MCTRL_ASSERT(req->data_len <= req->capacity, "Tx buffer insufficient (%u < %u)",
+                 req->capacity, req->data_len);
     crc_field[0] = crc & 0x0ff;
     crc_field[1] = (crc >> 8) & 0x0ff;
 
     /* Slip encode and transmit the packet */
-    ret = slip_tx(uart_slip_tx_char, transport, cmd->data, cmd->data_len);
-    cmd->data_len = original_cmd_data_len;
+    ret = slip_tx(uart_slip_tx_char, transport, req->data, req->data_len);
+    req->data_len = original_cmd_data_len;
 
     if (ret != 0)
     {

@@ -98,7 +98,7 @@ static void print_ampdu_aggregates(const char *key, const uint8_t *buf, uint32_t
     stats_print_label(key, 0);
     for (int i = 0; i < MORSE_ARRAY_SIZE(count->count); i++)
     {
-        mctrl_print(" %u", count->count[i]);
+        mctrl_print(" %u", le32toh(count->count[i]));
     }
     mctrl_print("\n");
 }
@@ -109,7 +109,7 @@ static void print_ampdu_bitmap(const char *key, const uint8_t *buf, uint32_t len
     stats_print_label(key, 0);
     for (int i = 0; i < MORSE_ARRAY_SIZE(bitmap->bitmap); i++)
     {
-        mctrl_print(" %u", bitmap->bitmap[i]);
+        mctrl_print(" %u", le32toh(bitmap->bitmap[i]));
     }
     mctrl_print("\n");
 }
@@ -119,17 +119,21 @@ static void print_txop(const char *key, const uint8_t *buf, uint32_t len)
     struct txop_statistics *txop_stats = (struct txop_statistics *)buf;
     uint32_t duration_avg = 0, packets_avg = 0;
 
-    if (txop_stats->count)
+    uint64_t duration = le64toh(txop_stats->duration);
+    uint32_t count = le32toh(txop_stats->count);
+    uint32_t pkts = le32toh(txop_stats->pkts);
+
+    if (le32toh(txop_stats->count))
     {
-        packets_avg = (uint32_t)(txop_stats->pkts / txop_stats->count);
-        duration_avg = (uint32_t)(txop_stats->duration / txop_stats->count);
+        packets_avg = (uint32_t)(pkts / count);
+        duration_avg = (uint32_t)(duration / count);
     }
 
     stats_print_section_header(key, 0);
-    stats_print_unsigned("TXOP count", txop_stats->count, 1);
-    stats_print_unsigned("Total TXOP time", txop_stats->duration, 1);
+    stats_print_unsigned("TXOP count", count, 1);
+    stats_print_unsigned("Total TXOP time", duration, 1);
     stats_print_unsigned("Average TXOP time", duration_avg, 1);
-    stats_print_unsigned("Total TXOP TX packets", txop_stats->pkts, 1);
+    stats_print_unsigned("Total TXOP TX packets", pkts, 1);
     stats_print_unsigned("Average TXOP TX packets", packets_avg, 1);
 }
 
@@ -141,8 +145,8 @@ static void print_pageset(const char *key, const uint8_t *buf, uint32_t len)
     for (int i = 0; i < NUM_PAGESETS; i++)
     {
         mctrl_print("%*sPageset %d\n", INDENT_LEN, "", i);
-        stats_print_unsigned("Allocated", pageset->pages_allocated[i], 2);
-        stats_print_unsigned("Total", pageset->pages_to_allocate[i], 2);
+        stats_print_unsigned("Allocated", le32toh(pageset->pages_allocated[i]), 2);
+        stats_print_unsigned("Total", le32toh(pageset->pages_to_allocate[i]), 2);
     }
 }
 
@@ -155,8 +159,9 @@ static void print_retries(const char *key, const uint8_t *buf, uint32_t len)
 
     for (int i = 0; i < APP_STATS_COUNT; i++)
     {
-        mctrl_print("    %-8d %-8u %u\n", i, retries->count[i],
-        retries->count[i] ? (uint32_t)(retries->sum[i]/retries->count[i]) : 0);
+        uint32_t count = le32toh(retries->count[i]);
+        mctrl_print("    %-8d %-8u %u\n", i, count,
+            count ? (uint32_t)(le64toh(retries->sum[i]) / count) : 0);
     }
 }
 
@@ -170,19 +175,20 @@ static void print_raw(const char *key, const uint8_t *buf, uint32_t len)
     stats_print_label("Valid", 2);
     for (uint8_t i = 0; i < MORSE_ARRAY_SIZE(raw_stats->assignments); i++)
     {
-        mctrl_print(" %d", raw_stats->assignments[i]);
+        mctrl_print(" %d", le32toh(raw_stats->assignments[i]));
     }
     mctrl_print("\n");
 
-    stats_print_unsigned("Truncated by TBTT", raw_stats->assignments_truncated_from_tbtt, 2);
-    stats_print_unsigned("Invalid", raw_stats->invalid_assignments, 2);
-    stats_print_unsigned("Already past", raw_stats->already_past_assignment, 2);
+    stats_print_unsigned("Truncated by TBTT",
+                            le32toh(raw_stats->assignments_truncated_from_tbtt), 2);
+    stats_print_unsigned("Invalid", le32toh(raw_stats->invalid_assignments), 2);
+    stats_print_unsigned("Already past", le32toh(raw_stats->already_past_assignment), 2);
 
     stats_print_section_header("Delayed due to RAW", 1);
-    stats_print_unsigned("From ACI queue", raw_stats->aci_frames_delayed, 2);
-    stats_print_unsigned("From BC/MC queue", raw_stats->bc_mc_frames_delayed, 2);
-    stats_print_unsigned("From absolute time queue", raw_stats->abs_frames_delayed, 2);
-    stats_print_unsigned("Frame crosses slot", raw_stats->frame_crosses_slot_delayed, 2);
+    stats_print_unsigned("From ACI queue", le32toh(raw_stats->aci_frames_delayed), 2);
+    stats_print_unsigned("From BC/MC queue", le32toh(raw_stats->bc_mc_frames_delayed), 2);
+    stats_print_unsigned("From absolute time queue", le32toh(raw_stats->abs_frames_delayed), 2);
+    stats_print_unsigned("Frame crosses slot", le32toh(raw_stats->frame_crosses_slot_delayed), 2);
 }
 
 static void print_calibration(const char *key, const uint8_t *buf, uint32_t len)
@@ -190,12 +196,15 @@ static void print_calibration(const char *key, const uint8_t *buf, uint32_t len)
     managed_calibration_stats_t *calib_stats = (managed_calibration_stats_t *)buf;
     stats_print_section_header(key, 0);
 
-    stats_print_signed("Quiet calibration granted", calib_stats->quiet_calibration_granted, 1);
-    stats_print_signed("Quiet calibration rejected", calib_stats->quiet_calibration_rejected, 1);
-    stats_print_signed("Quiet calibration cancelled", calib_stats->quiet_calibration_cancelled, 1);
+    stats_print_signed("Quiet calibration granted",
+                        le32toh(calib_stats->quiet_calibration_granted), 1);
+    stats_print_signed("Quiet calibration rejected",
+                        le32toh(calib_stats->quiet_calibration_rejected), 1);
+    stats_print_signed("Quiet calibration cancelled",
+                        le32toh(calib_stats->quiet_calibration_cancelled), 1);
     stats_print_signed("Non-quiet calibration granted",
-                       calib_stats->non_quiet_calibration_granted, 1);
-    stats_print_signed("Calibration complete", calib_stats->calibration_complete, 1);
+                       le32toh(calib_stats->non_quiet_calibration_granted), 1);
+    stats_print_signed("Calibration complete", le32toh(calib_stats->calibration_complete), 1);
 }
 
 static void print_duty_cycle(const char *key, const uint8_t *buf, uint32_t len)
@@ -205,18 +214,18 @@ static void print_duty_cycle(const char *key, const uint8_t *buf, uint32_t len)
 
     stats_print_label("Duty Cycle Target (%)", 1);
     mctrl_print(" %d.%02d\n",
-                duty_cycle_stats->target_duty_cycle / 100,
-                duty_cycle_stats->target_duty_cycle % 100);
-    stats_print_unsigned("Duty Cycle TX on (usec)", duty_cycle_stats->total_t_air, 1);
-    stats_print_unsigned("Duty Cycle TX off (blocked) (usec)", duty_cycle_stats->total_t_off, 1);
-    stats_print_unsigned("Duty Cycle max time off (usec)", duty_cycle_stats->max_t_off, 1);
-    stats_print_unsigned("Duty Cycle early frames", duty_cycle_stats->num_early, 1);
+                le32toh(duty_cycle_stats->target_duty_cycle) / 100,
+                le32toh(duty_cycle_stats->target_duty_cycle) % 100);
+    stats_print_unsigned("Duty Cycle TX on (usec)", le64toh(duty_cycle_stats->total_t_air), 1);
+    stats_print_unsigned("Duty Cycle TX off (blocked) (usec)",
+                        le64toh(duty_cycle_stats->total_t_off), 1);
+    stats_print_unsigned("Duty Cycle max time off (usec)", le64toh(duty_cycle_stats->max_t_off), 1);
+    stats_print_unsigned("Duty Cycle early frames", le32toh(duty_cycle_stats->num_early), 1);
 }
 
 static void print_mac_state(const char *key, const uint8_t *buf, uint32_t len)
 {
-    uint64_t mac_state;
-    memcpy(&mac_state, buf, sizeof(mac_state));
+    uint64_t mac_state = le64toh(*(__force __le64*) buf);
     stats_print_section_header(key, 0);
     stats_print_signed("RX state",
                        BMGET(mac_state, ENCODE_MAC_STATE_RX_STATE), 1);
@@ -249,7 +258,7 @@ static void print_umac_latency_histogram(const char *key, const uint8_t *buf, ui
     stats_print_label(key, 0);
     for (size_t i = 0; i < MORSE_ARRAY_SIZE(histogram->buckets); i++)
     {
-        mctrl_print(" %u", histogram->buckets[i]);
+        mctrl_print(" %u", le32toh(histogram->buckets[i]));
     }
     mctrl_print("\n");
 }
@@ -258,9 +267,9 @@ static void print_array(const char *key, const uint8_t *buf, uint32_t len)
 {
     array_t *array = (array_t *)buf;
     stats_print_label(key, 0);
-    for (int i = 0; i < array->count; i++)
+    for (int i = 0; i < le16toh(array->count); i++)
     {
-        mctrl_print("%d ", array->array[i]);
+        mctrl_print("%d ", le16toh(array->array[i]));
     }
     mctrl_print("\n");
 }
@@ -308,7 +317,7 @@ static const struct format_table table = {
     }
 };
 
-const struct format_table* stats_format_regular_get_formatter_table()
+const struct format_table* stats_format_regular_get_formatter_table(void)
 {
     return &table;
 }

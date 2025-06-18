@@ -26,7 +26,7 @@ int coredump(struct morsectrl *mors, int argc, char *argv[])
     if (!cmd_tbuff || !rsp_tbuff)
         goto exit;
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_COREDUMP,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_COREDUMP,
                                  cmd_tbuff, rsp_tbuff);
 exit:
     morsectrl_transport_buff_free(cmd_tbuff);

@@ -24,22 +24,6 @@
 #define AUTO_TRIGGER_TIMEOUT_MAX        (10000U)
 #define AUTO_TRIGGER_TIMEOUT_DEFAULT    (0U)
 
-
-struct PACKED set_uapsd
-{
-    /** Auto trigger enabled/disabled flag */
-    uint8_t auto_trigger_enabled;
-
-    /** Timeout(ms) at which frame is triggered */
-    uint32_t auto_trigger_timeout;
-};
-
-struct PACKED uapsd_cfm
-{
-    /** Confirm auto trigger enabled/disabled */
-    uint8_t auto_trigger_enabled;
-};
-
 static struct
 {
     struct arg_rex *enable;
@@ -61,20 +45,21 @@ int uapsd(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     uint8_t is_auto_trigger_enabled = AUTO_TRIGGER_FLAG_DEFAULT;
-    struct set_uapsd *cmd;
-    struct uapsd_cfm *rsp;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_uapsd_config *req;
+    struct morse_cmd_resp_uapsd_config *rsp;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp));
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_uapsd);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_uapsd_config);
+    rsp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_uapsd_config);
 
-    memset(cmd, 0, sizeof(*cmd));
+    memset(req, 0, sizeof(*req));
 
     if (expression_to_int(args.enable->sval[0]))
     {
@@ -92,18 +77,18 @@ int uapsd(struct morsectrl *mors, int argc, char *argv[])
         goto exit;
     }
 
-    cmd->auto_trigger_enabled = is_auto_trigger_enabled;
+    req->auto_trigger_enabled = is_auto_trigger_enabled;
 
     if (args.timeout->count)
     {
-        cmd->auto_trigger_timeout = args.timeout->ival[0];
+        req->auto_trigger_timeout = htole32(args.timeout->ival[0]);
     }
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_UAPSD_CONFIG,
-                                 cmd_tbuff, rsp_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_UAPSD_CONFIG,
+                                 req_tbuff, rsp_tbuff);
 
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

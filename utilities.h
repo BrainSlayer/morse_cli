@@ -35,6 +35,7 @@
 #define MAC_ADDR_LEN    (6)
 #define MACSTR          "%02x:%02x:%02x:%02x:%02x:%02x"
 #define MAC2STR(a)      (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define MAC_CMD_REGEX   "([a-f0-9]{2}:){5}([a-f0-9]{2})"
 
 #define IPSTR          "%d.%d.%d.%d"
 #define IP2STR(a)      (a)[0], (a)[1], (a)[2], (a)[3]
@@ -271,7 +272,7 @@ int hexstr2bin(const char *hex, uint8_t *buf, size_t len);
  * this size
  * Returns: 0 on success, -1 on failure (invalid hex string)
  */
-int hexstr2uint32_arr(const char *hex, uint32_t *buf, size_t len);
+int hexstr2uint32_arr(const char *hex, __le32 *buf, size_t len);
 
 /**
  *  Converts any uppercase characters in a given string to lowercases

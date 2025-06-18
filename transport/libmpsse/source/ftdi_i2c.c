@@ -995,7 +995,9 @@ static FT_STATUS I2C_FastWrite(FT_HANDLE handle, UCHAR deviceAddress,
 	uint32 bytesToTransfer;
 	uint8 tempAddress;
 	uint32 bitsToTransfer;
+#if defined(FASTWRITE_READ_ACK) && defined(INFRA_DEBUG_ENABLE)
 	uint32 bitsToRead = 0;
+#endif
 
 	FN_ENTER;
 
@@ -1081,7 +1083,9 @@ static FT_STATUS I2C_FastWrite(FT_HANDLE handle, UCHAR deviceAddress,
 		/* Command to get ACK bit */
 		outBuffer[i++] = MPSSE_CMD_DATA_IN_BITS_POS_EDGE;/* MPSSE command */
 		outBuffer[i++] = DATA_SIZE_1BIT; /* Read only one bit */
+#ifdef INFRA_DEBUG_ENABLE
 		bitsToRead++;
+#endif
 #endif
 	}
 
@@ -1113,7 +1117,9 @@ static FT_STATUS I2C_FastWrite(FT_HANDLE handle, UCHAR deviceAddress,
 			/* Command to get ACK bit */
 			outBuffer[i++] = MPSSE_CMD_DATA_IN_BITS_POS_EDGE;/* MPSSE command */
 			outBuffer[i++] = DATA_SIZE_1BIT; /* Read only one bit */
+#ifdef INFRA_DEBUG_ENABLE
 			bitsToRead++;
+#endif
 		}
 #endif
 		j+= bitsInThisTransfer;

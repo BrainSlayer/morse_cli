@@ -31,7 +31,7 @@ int health(struct morsectrl *mors, int argc, char *argv[])
     if (!cmd_tbuff || !rsp_tbuff)
         goto exit;
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_HEALTH_CHECK,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_HEALTH_CHECK,
                                  cmd_tbuff, rsp_tbuff);
 
 exit:

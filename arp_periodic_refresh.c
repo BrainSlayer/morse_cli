@@ -16,18 +16,6 @@
  */
 #define ARP_REFRESH_MAX_PERIOD_S  (UINT32_MAX / 1000)
 
-struct PACKED arp_periodic_params
-{
-    uint32_t refresh_period_s;
-    ipv4_addr_t destination_ip;
-    uint8_t  send_as_garp;
-};
-
-struct PACKED command_set_arp_periodic_refresh_req
-{
-    struct arp_periodic_params config;
-};
-
 static struct
 {
     struct arg_int *arp_refresh_period_s;
@@ -52,22 +40,22 @@ int arp_periodic_refresh_init(struct morsectrl *mors, struct mm_argtable *mm_arg
 
 int arp_periodic_refresh(struct morsectrl *mors, int argc, char *argv[])
 {
-    struct command_set_arp_periodic_refresh_req *cmd_set;
+    struct morse_cmd_req_arp_periodic_refresh *req_set;
 
-    struct morsectrl_transport_buff *cmd_set_tbuff;
+    struct morsectrl_transport_buff *req_set_tbuff;
     struct morsectrl_transport_buff *rsp_set_tbuff;
 
     ipv4_addr_t temp_ip;
 
-    cmd_set_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd_set));
+    req_set_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req_set));
     rsp_set_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
     int ret = 0;
 
-    if (!cmd_set_tbuff || !rsp_set_tbuff)
+    if (!req_set_tbuff || !rsp_set_tbuff)
         goto exit;
 
-    cmd_set = TBUFF_TO_CMD(cmd_set_tbuff, struct command_set_arp_periodic_refresh_req);
+    req_set = TBUFF_TO_REQ(req_set_tbuff, struct morse_cmd_req_arp_periodic_refresh);
 
     if (args.arp_refresh_period_s->count)
     {
@@ -77,7 +65,7 @@ int arp_periodic_refresh(struct morsectrl *mors, int argc, char *argv[])
             mctrl_err("Max refresh period is %d\n", ARP_REFRESH_MAX_PERIOD_S);
             goto exit;
         }
-        cmd_set->config.refresh_period_s = args.arp_refresh_period_s->ival[0];
+        req_set->config.refresh_period_s = htole32(args.arp_refresh_period_s->ival[0]);
     }
     else
     {
@@ -94,9 +82,9 @@ int arp_periodic_refresh(struct morsectrl *mors, int argc, char *argv[])
           mctrl_err("Failed to parse IP address: %s\n", *args.destination_address->sval);
           goto exit;
        }
-       cmd_set->config.destination_ip = temp_ip;
+       req_set->config.destination_ip = htole32(temp_ip.as_u32);
     }
-    else if (cmd_set->config.refresh_period_s)
+    else if (req_set->config.refresh_period_s)
     {
         ret = EINVAL;
         mctrl_err("Destination IP address not entered\n");
@@ -106,18 +94,18 @@ int arp_periodic_refresh(struct morsectrl *mors, int argc, char *argv[])
 
     if (args.send_as_garp->count)
     {
-        cmd_set->config.send_as_garp = 1;
+        req_set->config.send_as_garp = 1;
     }
     else
     {
-       cmd_set->config.send_as_garp = 0;
+       req_set->config.send_as_garp = 0;
     }
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_ARP_PERIODIC_REFRESH,
-                                 cmd_set_tbuff, rsp_set_tbuff);
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_ARP_PERIODIC_REFRESH,
+                                 req_set_tbuff, rsp_set_tbuff);
 
 exit:
-    morsectrl_transport_buff_free(cmd_set_tbuff);
+    morsectrl_transport_buff_free(req_set_tbuff);
     morsectrl_transport_buff_free(rsp_set_tbuff);
     return ret;
 }

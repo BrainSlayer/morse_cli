@@ -13,48 +13,12 @@
 #include "command.h"
 #include "utilities.h"
 
-#define CAC_CFG_CHANGE_RULE_MAX         (8)
-#define CAC_CFG_ARFS_MAX                (99)
-#define CAC_CFG_CHANGE_MAX              (99)
-#define CAC_CFG_CHANGE_STEP             (5)
-
-enum cac_command {
-    CAC_COMMAND_DISABLE = 0,
-    CAC_COMMAND_ENABLE = 1,
-    CAC_COMMAND_CFG_GET = 2,
-    CAC_COMMAND_CFG_SET = 3
-};
-
 static struct {
     struct arg_rex *subcmd;
     struct arg_rex *decrease;
     struct arg_rex *increase;
     struct arg_lit *verbose;
 } args;
-
-/** CAC threshold change rule */
-struct PACKED cac_threshold_change_rule {
-    /* Threshold in Authentication Request Frames per Second */
-    uint16_t arfs;
-    /** Percent change in threshold to apply if condition is matched */
-    int16_t threshold_change;
-};
-
-struct PACKED command_cac_req {
-    /** CAC subcommand */
-    uint8_t cmd;
-    /** Number of rules */
-    uint8_t rule_tot;
-    /** Threshold change rule */
-    struct cac_threshold_change_rule rule[CAC_CFG_CHANGE_RULE_MAX];
-};
-
-struct PACKED command_cac_cfm {
-    /** Number of rules */
-    uint8_t rule_tot;
-    /** Threshold change rule */
-    struct cac_threshold_change_rule rule[CAC_CFG_CHANGE_RULE_MAX];
-};
 
 int cac_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
@@ -69,12 +33,12 @@ int cac_init(struct morsectrl *mors, struct mm_argtable *mm_args)
         arg_rem(NULL,
             "enable|disable - for internal use by wpa_supplicant only"),
         args.decrease = arg_rexn("d", "decrease", "[0-9]{1,3},[0-9]{1,2}",
-            "<ARFS>,<percent>", 0, CAC_CFG_CHANGE_RULE_MAX, 0,
+            "<ARFS>,<percent>", 0, MORSE_CMD_CAC_CFG_CHANGE_RULE_MAX, 0,
             "Auth Req Frames per Sec above which to decrease threshold by <percent>"),
         arg_rem(NULL,
             "Decrease rules must be specified in descending ARFS order (match highest first)"),
         args.increase = arg_rexn("i", "increase", "[0-9]{1,3},[0-9]{1,2}",
-            "<ARFS>,<percent>", 0, CAC_CFG_CHANGE_RULE_MAX, 0,
+            "<ARFS>,<percent>", 0, MORSE_CMD_CAC_CFG_CHANGE_RULE_MAX, 0,
             "Auth Req Frames per Sec below which to increase threshold by <percent>"),
         arg_rem(NULL,
             "Increase rules must be specified in ascending ARFS order (match lowest first)"),
@@ -84,7 +48,7 @@ int cac_init(struct morsectrl *mors, struct mm_argtable *mm_args)
     return 0;
 }
 
-static int cac_cmd_enable_or_disable(struct command_cac_req *cac_req)
+static int cac_cmd_enable_or_disable(struct morse_cmd_req_cac *cac_req)
 {
     if (args.decrease->count || args.increase->count)
     {
@@ -96,21 +60,23 @@ static int cac_cmd_enable_or_disable(struct command_cac_req *cac_req)
     return 0;
 }
 
-static void cac_print_rule(struct cac_threshold_change_rule *rule)
+static void cac_print_rule(struct morse_cmd_cac_change_rule *rule)
 {
-    bool is_decrease = (rule->threshold_change < 0);
+    int16_t threshold_change;
+    threshold_change = le16toh(rule->threshold_change);
+    bool is_decrease = threshold_change < 0;
 
     mctrl_print("When ARFS is %s %u, %s threshold by %d%%\n",
                 is_decrease ? "greater than" : "less than",
                 rule->arfs,
                 is_decrease ? "decrease" : "increase",
-                abs(rule->threshold_change));
+                abs(threshold_change));
 }
 
-static void cac_print_rules(struct command_cac_cfm *cac_cfm)
+static void cac_print_rules(struct morse_cmd_resp_cac *cac_cfm)
 {
     int i;
-    struct cac_threshold_change_rule *rule;
+    struct morse_cmd_cac_change_rule *rule;
 
     for (i = 0; i < cac_cfm->rule_tot && i < MORSE_ARRAY_SIZE(cac_cfm->rule); i++)
     {
@@ -119,7 +85,7 @@ static void cac_print_rules(struct command_cac_cfm *cac_cfm)
     }
 }
 
-static int cac_add_rule_to_cmd(struct cac_threshold_change_rule *rule,
+static int cac_add_rule_to_cmd(struct morse_cmd_cac_change_rule *rule,
                                const char *rule_str, bool is_decrease,
                                uint16_t *arfs_prev, uint16_t *threshold_change_prev)
 {
@@ -133,16 +99,16 @@ static int cac_add_rule_to_cmd(struct cac_threshold_change_rule *rule,
         mctrl_err("Unexpected rule parse error in %s\n", rule_str);
     }
 
-    if (arfs < 1 || arfs > CAC_CFG_ARFS_MAX)
+    if (arfs < 1 || arfs > MORSE_CMD_CAC_CFG_ARFS_MAX)
     {
-        mctrl_err("ARFS value (%u) is not between 1 and %d\n", arfs, CAC_CFG_ARFS_MAX);
+        mctrl_err("ARFS value (%u) is not between 1 and %d\n", arfs, MORSE_CMD_CAC_CFG_ARFS_MAX);
         return -EINVAL;
     }
 
-    if (threshold_change < 1 || threshold_change > CAC_CFG_CHANGE_MAX)
+    if (threshold_change < 1 || threshold_change > MORSE_CMD_CAC_CFG_CHANGE_MAX)
     {
         mctrl_err("Threshold change (%d) is not between 1%% and %d%%\n",
-                  threshold_change, CAC_CFG_CHANGE_MAX);
+                  threshold_change, MORSE_CMD_CAC_CFG_CHANGE_MAX);
         return -EINVAL;
     }
 
@@ -153,7 +119,7 @@ static int cac_add_rule_to_cmd(struct cac_threshold_change_rule *rule,
         return -EINVAL;
     }
 
-    rule->arfs = arfs;
+    rule->arfs = htole16(arfs);
     if (is_decrease)
     {
         if (arfs >= *arfs_prev)
@@ -161,7 +127,7 @@ static int cac_add_rule_to_cmd(struct cac_threshold_change_rule *rule,
             mctrl_err("ARFS value (%u) for decrease rule is not in descending order\n", arfs);
             return -EINVAL;
         }
-        rule->threshold_change = -threshold_change;
+        rule->threshold_change = htole16((int16_t) -threshold_change);
     }
     else
     {
@@ -170,7 +136,7 @@ static int cac_add_rule_to_cmd(struct cac_threshold_change_rule *rule,
             mctrl_err("ARFS value (%u) for increase rule is not in ascending order\n", arfs);
             return -EINVAL;
         }
-        rule->threshold_change = threshold_change;
+        rule->threshold_change = htole16(threshold_change);
     }
     *arfs_prev = arfs;
     *threshold_change_prev = threshold_change;
@@ -183,7 +149,7 @@ static int cac_add_rule_to_cmd(struct cac_threshold_change_rule *rule,
     return 0;
 }
 
-static int cac_cmd_get(struct command_cac_req *cac_req)
+static int cac_cmd_get(struct morse_cmd_req_cac *cac_req)
 {
     if (args.decrease->count || args.increase->count)
     {
@@ -195,17 +161,17 @@ static int cac_cmd_get(struct command_cac_req *cac_req)
     return 0;
 }
 
-static int cac_cmd_set(struct command_cac_req *cac_req)
+static int cac_cmd_set(struct morse_cmd_req_cac *cac_req)
 {
     int ret = 0;
     uint16_t arfs_prev;
     uint16_t threshold_change_prev;
     const char *rule_str;
     int rule_idx = 0;
-    struct cac_threshold_change_rule *rule;
+    struct morse_cmd_cac_change_rule *rule;
     int i;
 
-    cac_req->cmd = CAC_COMMAND_CFG_SET;
+    cac_req->opcode = MORSE_CMD_CAC_OP_CFG_SET;
     cac_req->rule_tot = args.decrease->count + args.increase->count;
 
     if (cac_req->rule_tot == 0)
@@ -225,8 +191,8 @@ static int cac_cmd_set(struct command_cac_req *cac_req)
      * - ARFS must be in descending order
      * - Threshold change must be in descending order
      */
-    arfs_prev = CAC_CFG_ARFS_MAX + 1;
-    threshold_change_prev = CAC_CFG_CHANGE_MAX + 1;
+    arfs_prev = MORSE_CMD_CAC_CFG_ARFS_MAX + 1;
+    threshold_change_prev = MORSE_CMD_CAC_CFG_CHANGE_MAX + 1;
     for (i = 0; i < args.decrease->count && ret == 0; i++)
     {
         rule_str = args.decrease->sval[i];
@@ -240,7 +206,7 @@ static int cac_cmd_set(struct command_cac_req *cac_req)
      * - Threshold change must be in descending order
      */
     arfs_prev = 0;
-    threshold_change_prev = CAC_CFG_CHANGE_MAX + 1;
+    threshold_change_prev = MORSE_CMD_CAC_CFG_CHANGE_MAX + 1;
     for (i = 0; i < args.increase->count && ret == 0; i++)
     {
         rule_str = args.increase->sval[i];
@@ -252,30 +218,30 @@ static int cac_cmd_set(struct command_cac_req *cac_req)
     return ret;
 }
 
-static int cac_handle_command(struct command_cac_req *cac_req)
+static int cac_handle_command(struct morse_cmd_req_cac *cac_req)
 {
     if (strcmp(args.subcmd->sval[0], "enable") == 0)
     {
-        cac_req->cmd = CAC_COMMAND_ENABLE;
+        cac_req->opcode = MORSE_CMD_CAC_OP_ENABLE;
         return cac_cmd_enable_or_disable(cac_req);
     }
 
     if (strcmp(args.subcmd->sval[0], "disable") == 0)
     {
-        cac_req->cmd = CAC_COMMAND_DISABLE;
+        cac_req->opcode = MORSE_CMD_CAC_OP_DISABLE;
         return cac_cmd_enable_or_disable(cac_req);
     }
 
     if (strcmp(args.subcmd->sval[0], "get") == 0)
     {
-        cac_req->cmd = CAC_COMMAND_CFG_GET;
+        cac_req->opcode = MORSE_CMD_CAC_OP_CFG_GET;
         return cac_cmd_get(cac_req);
     }
 
     if (args.subcmd->count == 0 ||
         strcmp(args.subcmd->sval[0], "set") == 0)
     {
-        cac_req->cmd = CAC_COMMAND_CFG_SET;
+        cac_req->opcode = MORSE_CMD_CAC_OP_CFG_SET;
         return cac_cmd_set(cac_req);
     }
 
@@ -285,8 +251,8 @@ static int cac_handle_command(struct command_cac_req *cac_req)
 int cac(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -EINVAL;
-    struct command_cac_req *cac_req = NULL;
-    struct command_cac_cfm *cac_cfm = NULL;
+    struct morse_cmd_req_cac *cac_req = NULL;
+    struct morse_cmd_resp_cac *cac_cfm = NULL;
     struct morsectrl_transport_buff *cmd_tbuff = NULL;
     struct morsectrl_transport_buff *rsp_tbuff = NULL;
 
@@ -297,8 +263,8 @@ int cac(struct morsectrl *mors, int argc, char *argv[])
         goto exit;
     }
 
-    cac_req = TBUFF_TO_CMD(cmd_tbuff, struct command_cac_req);
-    cac_cfm = TBUFF_TO_RSP(rsp_tbuff, struct command_cac_cfm);
+    cac_req = TBUFF_TO_REQ(cmd_tbuff, struct morse_cmd_req_cac);
+    cac_cfm = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_cac);
 
     ret = cac_handle_command(cac_req);
     if (ret < 0)
@@ -306,10 +272,10 @@ int cac(struct morsectrl *mors, int argc, char *argv[])
         goto exit;
     }
 
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_CAC, cmd_tbuff,
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_CAC, cmd_tbuff,
             rsp_tbuff);
 
-    if (ret == 0 && cac_req->cmd == CAC_COMMAND_CFG_GET)
+    if (ret == 0 && cac_req->opcode == MORSE_CMD_CAC_OP_CFG_GET)
     {
         cac_print_rules(cac_cfm);
     }

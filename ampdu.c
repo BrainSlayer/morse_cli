@@ -14,12 +14,6 @@
 #include "command.h"
 #include "utilities.h"
 
-
-struct PACKED set_ampdu_command
-{
-    uint8_t ampdu_enabled;
-};
-
 static struct arg_rex *ampdu_enable_arg;
 
 int ampdu_init(struct morsectrl *mors, struct mm_argtable *mm_args)
@@ -35,26 +29,26 @@ int ampdu(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     int enabled;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
-    struct set_ampdu_command *cmd;
+    struct morse_cmd_req_set_ampdu *req;
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_ampdu_command);
-    cmd->ampdu_enabled = 0;
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_set_ampdu);
+    req->ampdu_enabled = 0;
 
     enabled = expression_to_int(ampdu_enable_arg->sval[0]);
 
-    cmd->ampdu_enabled = enabled;
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_AMPDU,
-                                 cmd_tbuff, rsp_tbuff);
+    req->ampdu_enabled = enabled;
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_AMPDU,
+                                 req_tbuff, rsp_tbuff);
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

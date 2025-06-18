@@ -90,7 +90,7 @@ struct MM_CLI_HANDLER_ALIGN command_handler
 
 #define _MM_CLI_HANDLER( \
     command, _is_intf_cmd, _direct_chip_supported_cmd, deprecated, custom_help) \
-    int command##_help() { return 0; } \
+    int command##_help(void) { return 0; } \
     __MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd, deprecated, custom_help)
 
 #define MM_CLI_HANDLER(command, _is_intf_cmd, _direct_chip_supported_cmd) \

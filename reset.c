@@ -16,7 +16,9 @@
 #include "command.h"
 #ifndef MORSE_WIN_BUILD
 #include "gpioctrl.h"
+#ifndef CONFIG_ANDROID
 #include "usb.h"
+#endif
 #endif
 
 #define MM610X_CPU_SOFT_RESET_ADDR      (0x10054094)
@@ -208,7 +210,7 @@ int reset(struct morsectrl *mors, int argc, char *argv[])
     int reset_gpio = 0;
     bool do_soft_reset = (args.softreset->count > 0);
 
-#ifndef MORSE_WIN_BUILD
+#if !defined(MORSE_WIN_BUILD) && !defined(CONFIG_ANDROID)
     bool do_usb_reset = (args.usbreset->count > 0);
 
     if (do_usb_reset)

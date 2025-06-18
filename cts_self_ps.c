@@ -14,12 +14,6 @@
 #include "command.h"
 #include "utilities.h"
 
-struct PACKED set_cts_self_ps_command
-{
-    /** The flag of this message */
-    uint8_t enable;
-};
-
 static struct
 {
     struct arg_rex *enable;
@@ -37,25 +31,25 @@ int cts_self_ps(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     int enable;
-    struct set_cts_self_ps_command *cmd;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_cts_self_ps *req;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
     enable = expression_to_int(args.enable->sval[0]);
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, 0);
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct set_cts_self_ps_command);
-    cmd->enable = enable;
-    ret = morsectrl_send_command(mors->transport, MORSE_COMMAND_SET_CTS_SELF_PS,
-                                 cmd_tbuff, rsp_tbuff);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_cts_self_ps);
+    req->enable = enable;
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_CTS_SELF_PS,
+                                 req_tbuff, rsp_tbuff);
 
 exit:
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }

@@ -14,60 +14,6 @@
 #include "command.h"
 #include "utilities.h"
 
-enum morse_param_action
-{
-    MORSE_PARAM_ACTION_SET = 0,
-    MORSE_PARAM_ACTION_GET = 1,
-
-    MORSE_PARAM_ACTION_LAST,
-    MORSE_PARAM_ACTION_MAX = UINT32_MAX,
-};
-
-enum morse_param_id
-{
-    MORSE_PARAM_ID_MAX_TRAFFIC_DELIVERY_WAIT_US     = 0,
-    MORSE_PARAM_ID_EXTRA_ACK_TIMEOUT_ADJUST_US      = 1,
-    MORSE_PARAM_ID_TX_STATUS_FLUSH_WATERMARK        = 2,
-    MORSE_PARAM_ID_TX_STATUS_FLUSH_MIN_AMPDU_SIZE   = 3,
-    MORSE_PARAM_ID_POWERSAVE_TYPE                   = 4,
-    MORSE_PARAM_ID_SNOOZE_ADJUST                    = 5,
-    MORSE_PARAM_ID_TX_BLOCK                         = 6,
-    MORSE_PARAM_ID_FORCED_SNOOZE_PERIOD_US          = 7,
-    MORSE_PARAM_ID_WAKE_ACTION_GPIO                 = 8,
-    MORSE_PARAM_ID_WAKE_ACTION_GPIO_PULSE_MS        = 9,
-    MORSE_PARAM_ID_CONNECTION_MONITOR_GPIO          = 10,
-    MORSE_PARAM_ID_INPUT_TRIGGER_GPIO               = 11,
-    MORSE_PARAM_ID_INPUT_TRIGGER_MODE               = 12,
-    MORSE_PARAM_ID_HOST_TX_BLOCK                    = 15,
-    MORSE_PARAM_ID_MEM_RETENTION_CODE               = 16,
-    MORSE_PARAM_ID_NON_TIM_MODE                     = 17,
-    MORSE_PARAM_ID_DYNAMIC_PS_TIMEOUT_MS            = 18,
-
-    MORSE_PARAM_ID_LAST,
-    MORSE_PARAM_ID_MAX = UINT32_MAX,
-};
-
-struct PACKED command_param_req
-{
-    /** The parameter to perform the action on [enum morse_param_id] */
-    uint32_t param_id;
-    /** The action to take on the the parameter [get | set] */
-    uint32_t action;
-    /** Any flags to modify the behaviour of the action (for forwards/backwards compatibility) */
-    uint32_t flags;
-    /** The value to set (only applicable for set actions) */
-    uint32_t value;
-};
-
-struct PACKED command_param_cfm
-{
-    /** Any flags to signal change of interpretation of response
-     *  (forwards/backwards compatibility) */
-    uint32_t flags;
-    /** The value returned (only applicable for get actions) */
-    uint32_t value;
-};
-
 struct param_entry;
 
 /**
@@ -80,7 +26,7 @@ struct param_entry;
  * @return 0 on success, else specific error code.
  */
 typedef int (*param_process_t)(const struct param_entry* entry,
-    const char* value, struct command_param_req* req);
+    const char* value, struct morse_cmd_req_get_set_generic_param* req);
 
 /**
  * @brief Callback that formats the response of a get operation, printing to stdout.
@@ -90,11 +36,12 @@ typedef int (*param_process_t)(const struct param_entry* entry,
  *
  * @return 0 on success, else specific error code.
  */
-typedef int (*param_format_t)(const struct param_entry* entry, struct command_param_cfm* resp);
+typedef int (*param_format_t)(const struct param_entry* entry,
+    struct morse_cmd_resp_get_set_generic_param* resp);
 
 struct param_entry {
     /** ID of the parameter */
-    enum morse_param_id id;
+    enum morse_cmd_param_id id;
     /** Name of the parameter (used to match on user CLI input) */
     const char *name;
     /** The help message to display for the parameter */
@@ -112,7 +59,7 @@ struct param_entry {
 };
 
 static int param_set_uint32(const struct param_entry* entry, const char* value,
-    struct command_param_req* req)
+    struct morse_cmd_req_get_set_generic_param* req)
 {
     int ret;
     uint32_t val;
@@ -125,18 +72,19 @@ static int param_set_uint32(const struct param_entry* entry, const char* value,
         return ret;
     }
 
-    req->value = val;
+    req->value = htole32(val);
     return 0;
 }
 
-static int param_get_uint32(const struct param_entry* entry, struct command_param_cfm* resp)
+static int param_get_uint32(const struct param_entry* entry,
+    struct morse_cmd_resp_get_set_generic_param* resp)
 {
     mctrl_print("%u\n", resp->value);
     return 0;
 }
 
 static int param_set_int32(const struct param_entry* entry, const char* value,
-    struct command_param_req* req)
+    struct morse_cmd_req_get_set_generic_param* req)
 {
     int ret;
     int32_t val;
@@ -149,13 +97,14 @@ static int param_set_int32(const struct param_entry* entry, const char* value,
         return ret;
     }
 
-    req->value = (uint32_t)val;
+    req->value = htole32((uint32_t)val);
     return 0;
 }
 
-static int param_get_int32(const struct param_entry* entry, struct command_param_cfm* resp)
+static int param_get_int32(const struct param_entry* entry,
+                           struct morse_cmd_resp_get_set_generic_param* resp)
 {
-    mctrl_print("%d\n", (int32_t)(resp->value));
+    mctrl_print("%d\n", le32toh(resp->value));
     return 0;
 }
 
@@ -184,7 +133,7 @@ int set_init(struct morsectrl *mors, struct mm_argtable *mm_args)
  */
 struct param_entry params[] = {
     {
-        .id = MORSE_PARAM_ID_MAX_TRAFFIC_DELIVERY_WAIT_US,
+        .id = MORSE_CMD_PARAM_ID_MAX_TRAFFIC_DELIVERY_WAIT_US,
         .name = "traffic_delivery_wait",
         .help = "Time to wait for traffic delivery from the AP after the TIM "
                 "is set in a busy BSS (usecs).",
@@ -194,7 +143,7 @@ struct param_entry params[] = {
         .get_fn = param_get_uint32,
     },
     {
-        .id = MORSE_PARAM_ID_EXTRA_ACK_TIMEOUT_ADJUST_US,
+        .id = MORSE_CMD_PARAM_ID_EXTRA_ACK_TIMEOUT_ADJUST_US,
         .name = "ack_timeout_adjust",
         .help = "Extra time to wait for 802.11 control response frames to be "
                 "delivered (usecs).",
@@ -204,7 +153,7 @@ struct param_entry params[] = {
         .get_fn = param_get_uint32,
     },
     {
-        .id = MORSE_PARAM_ID_WAKE_ACTION_GPIO,
+        .id = MORSE_CMD_PARAM_ID_WAKE_ACTION_GPIO,
         .name = "wake_action_gpio",
         .help = "Specify GPIO to pulse on reception of a Morse Micro "
                 "wake action frame (-1 to disable).",
@@ -214,7 +163,7 @@ struct param_entry params[] = {
         .get_fn = param_get_int32,
     },
     {
-        .id = MORSE_PARAM_ID_WAKE_ACTION_GPIO_PULSE_MS,
+        .id = MORSE_CMD_PARAM_ID_WAKE_ACTION_GPIO_PULSE_MS,
         .name = "wake_action_gpio_pulse",
         .help = "Time to hold wake action GPIO high after reception of "
                 "a Morse Micro wake action frame (msecs).",
@@ -224,7 +173,7 @@ struct param_entry params[] = {
         .get_fn = param_get_uint32,
     },
     {
-        .id = MORSE_PARAM_ID_CONNECTION_MONITOR_GPIO,
+        .id = MORSE_CMD_PARAM_ID_CONNECTION_MONITOR_GPIO,
         .name = "connection_monitor_gpio",
         .help = "Specify GPIO that monitors and reflects device's "
                 "802.11 connection status (-1 to disable).",
@@ -234,7 +183,7 @@ struct param_entry params[] = {
         .get_fn = param_get_int32,
     },
     {
-        .id = MORSE_PARAM_ID_INPUT_TRIGGER_GPIO,
+        .id = MORSE_CMD_PARAM_ID_INPUT_TRIGGER_GPIO,
         .name = "input_trigger_gpio",
         .help = "Specify GPIO that listens for an input signal to "
                 "wake an external host (-1 to disable).",
@@ -244,7 +193,7 @@ struct param_entry params[] = {
         .get_fn = param_get_int32,
     },
     {
-        .id = MORSE_PARAM_ID_INPUT_TRIGGER_MODE,
+        .id = MORSE_CMD_PARAM_ID_INPUT_TRIGGER_MODE,
         .name = "input_trigger_mode",
         .help = "Specify the active mode (high or low) for the trigger GPIO",
         .min_val = (uint32_t) -1,
@@ -253,7 +202,7 @@ struct param_entry params[] = {
         .get_fn = param_get_int32,
     },
     {
-        .id = MORSE_PARAM_ID_NON_TIM_MODE,
+        .id = MORSE_CMD_PARAM_ID_NON_TIM_MODE,
         .name = "non_tim_mode",
         .help = "Enable non-TIM mode (must be run before association)",
         .min_val = 0,
@@ -262,9 +211,18 @@ struct param_entry params[] = {
         .get_fn = param_get_uint32,
     },
     {
-        .id = MORSE_PARAM_ID_DYNAMIC_PS_TIMEOUT_MS,
+        .id = MORSE_CMD_PARAM_ID_DYNAMIC_PS_TIMEOUT_MS,
         .name = "dynamic_ps_timeout_ms",
         .help = "Dynamic powersave timeout (in ms) after network activity",
+        .min_val = 0,
+        .max_val = UINT32_MAX,
+        .set_fn = param_set_uint32,
+        .get_fn = param_get_uint32,
+    },
+    {
+        .id = MORSE_CMD_PARAM_ID_HOME_CHANNEL_DWELL_MS,
+        .name = "home_channel_dwell_ms",
+        .help = "Time to dwell on home channel during scans while associated (ms)",
         .min_val = 0,
         .max_val = UINT32_MAX,
         .set_fn = param_set_uint32,
@@ -325,7 +283,7 @@ static void print_param_help(const struct param_entry* param)
     }
 }
 
-int set_help()
+int set_help(void)
 {
     mctrl_print("    Available parameters:\n");
     for (unsigned int entry = 0; entry < MORSE_ARRAY_SIZE(params); entry++)
@@ -343,7 +301,7 @@ int set_help()
     return 0;
 }
 
-int get_help()
+int get_help(void)
 {
     mctrl_print("    Available parameters:\n");
     for (unsigned int entry = 0; entry < MORSE_ARRAY_SIZE(params); entry++)
@@ -361,7 +319,8 @@ int get_help()
     return 0;
 }
 
-static const struct param_entry* match_str_to_param(const char *str, enum morse_param_action action)
+static const struct param_entry* match_str_to_param(const char *str,
+                                                    enum morse_cmd_param_action action)
 {
     for (unsigned int entry = 0; entry < MORSE_ARRAY_SIZE(params); entry++)
     {
@@ -369,12 +328,12 @@ static const struct param_entry* match_str_to_param(const char *str, enum morse_
 
         if (strncmp(str, param->name, strlen(str)) == 0)
         {
-            if ((action == MORSE_PARAM_ACTION_SET) && (param->set_fn == NULL))
+            if ((action == MORSE_CMD_PARAM_ACTION_SET) && (param->set_fn == NULL))
             {
                 break;
             }
 
-            if ((action == MORSE_PARAM_ACTION_GET) && (param->get_fn == NULL))
+            if ((action == MORSE_CMD_PARAM_ACTION_GET) && (param->get_fn == NULL))
             {
                 break;
             }
@@ -386,26 +345,26 @@ static const struct param_entry* match_str_to_param(const char *str, enum morse_
     return NULL;
 }
 
-static void param_help(struct morsectrl *mors, enum morse_param_action action)
+static void param_help(struct morsectrl *mors, enum morse_cmd_param_action action)
 {
-    if (action == MORSE_PARAM_ACTION_SET)
+    if (action == MORSE_CMD_PARAM_ACTION_SET)
     {
         set_help();
     }
-    else if (action == MORSE_PARAM_ACTION_GET)
+    else if (action == MORSE_CMD_PARAM_ACTION_GET)
     {
         get_help();
     }
 }
 
 static int param_get_set(struct morsectrl *mors,
-    enum morse_param_action action, int argc, char *argv[])
+    enum morse_cmd_param_action action, int argc, char *argv[])
 {
     int ret = MORSE_ARG_ERR;
     const struct param_entry *param;
-    struct command_param_req *cmd;
-    struct command_param_cfm *rsp;
-    struct morsectrl_transport_buff *cmd_tbuff;
+    struct morse_cmd_req_get_set_generic_param *req;
+    struct morse_cmd_resp_get_set_generic_param *rsp;
+    struct morsectrl_transport_buff *req_tbuff;
     struct morsectrl_transport_buff *rsp_tbuff;
 
     param = match_str_to_param(args.param->sval[0], action);
@@ -416,22 +375,22 @@ static int param_get_set(struct morsectrl *mors,
         return ret;
     }
 
-    cmd_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*cmd));
+    req_tbuff = morsectrl_transport_cmd_alloc(mors->transport, sizeof(*req));
     rsp_tbuff = morsectrl_transport_resp_alloc(mors->transport, sizeof(*rsp));
 
-    if (!cmd_tbuff || !rsp_tbuff)
+    if (!req_tbuff || !rsp_tbuff)
         goto exit;
 
-    cmd = TBUFF_TO_CMD(cmd_tbuff, struct command_param_req);
-    rsp = TBUFF_TO_RSP(rsp_tbuff, struct command_param_cfm);
+    req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_get_set_generic_param);
+    rsp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_get_set_generic_param);
 
-    cmd->param_id = param->id;
-    cmd->action = action;
-    cmd->flags = 0;
+    req->param_id = htole32(param->id);
+    req->action = htole32(action);
+    req->flags = 0;
 
-    if (action == MORSE_PARAM_ACTION_SET)
+    if (action == MORSE_CMD_PARAM_ACTION_SET)
     {
-        ret = param->set_fn(param, args.value->sval[0], cmd);
+        ret = param->set_fn(param, args.value->sval[0], req);
         if (ret < 0)
         {
             goto exit;
@@ -439,11 +398,11 @@ static int param_get_set(struct morsectrl *mors,
     }
 
     ret = morsectrl_send_command(mors->transport,
-        MORSE_COMMAND_GET_SET_GENERIC_PARAM, cmd_tbuff, rsp_tbuff);
+        MORSE_CMD_ID_GET_SET_GENERIC_PARAM, req_tbuff, rsp_tbuff);
 exit:
     if (ret == 0)
     {
-        if (action == MORSE_PARAM_ACTION_GET)
+        if (action == MORSE_CMD_PARAM_ACTION_GET)
         {
             param->get_fn(param, rsp);
         }
@@ -453,19 +412,19 @@ exit:
         ret = -MORSE_CMD_ERR;
     }
 
-    morsectrl_transport_buff_free(cmd_tbuff);
+    morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }
 
 int get(struct morsectrl *mors, int argc, char *argv[])
 {
-    return param_get_set(mors, MORSE_PARAM_ACTION_GET, argc, argv);
+    return param_get_set(mors, MORSE_CMD_PARAM_ACTION_GET, argc, argv);
 }
 
 int set(struct morsectrl *mors, int argc, char *argv[])
 {
-    return param_get_set(mors, MORSE_PARAM_ACTION_SET, argc, argv);
+    return param_get_set(mors, MORSE_CMD_PARAM_ACTION_SET, argc, argv);
 }
 
 MM_CLI_HANDLER_CUSTOM_HELP(get, MM_INTF_REQUIRED, MM_DIRECT_CHIP_SUPPORTED);

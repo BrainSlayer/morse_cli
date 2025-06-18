@@ -1,34 +1,28 @@
 /*
- * Copyright 2022 Morse Micro
+ * Copyright 2025 Morse Micro
  * SPDX-License-Identifier: GPL-2.0-or-later OR LicenseRef-MorseMicroCommercial
  */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
 #include "command.h"
-#include "morse_commands.h"
 #include "utilities.h"
 
-static struct
-{
-    struct arg_int *bank_num;
-} args;
 
-int otp_init(struct morsectrl *mors, struct mm_argtable *mm_args)
+int boardtype_init(struct morsectrl *mors, struct mm_argtable *mm_args)
 {
-#define OTP_ARGTABLE_DESC "Read OTP bank"
-#define OTP_BANK_NUM_DESC "Bank number to read from"
+#define BOARDTYPE_ARGTABLE_DESC "Read board type OTP bank"
 
-    MM_INIT_ARGTABLE(mm_args, OTP_ARGTABLE_DESC,
-        args.bank_num = arg_rint1(NULL, NULL, "<bank num>", 0, UINT8_MAX, OTP_BANK_NUM_DESC)
+    MM_INIT_ARGTABLE(mm_args, BOARDTYPE_ARGTABLE_DESC
     ); /* NOLINT (whitespace/parens) */
     return 0;
 }
 
-int otp(struct morsectrl *mors, int argc, char *argv[])
+int boardtype(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
 
@@ -46,21 +40,26 @@ int otp(struct morsectrl *mors, int argc, char *argv[])
     req = TBUFF_TO_REQ(req_tbuff, struct morse_cmd_req_otp);
     resp = TBUFF_TO_RSP(rsp_tbuff, struct morse_cmd_resp_otp);
     req->write_otp = 0;
-    req->bank_region = MORSE_CMD_OTP_REGION_ALL_BANK;
 
 
-    req->bank_num = args.bank_num->ival[0];
+    req->bank_region = MORSE_CMD_OTP_REGION_BOARDTYPE;
+    req->bank_num = UINT8_MAX;
 
     ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_OTP,
                                  req_tbuff, rsp_tbuff);
 
 exit:
     if (ret == 0 && !req->write_otp)
-        mctrl_print("OTP Bank %d: 0x%x\n", args.bank_num->ival[0], resp->bank_val);
+    {
+        if (!resp->bank_val)
+            mctrl_print("Board type is not set\n");
+        else
+            mctrl_print("0x%x\n", resp->bank_val);
+    }
 
     morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);
     return ret;
 }
 
-MM_CLI_HANDLER(otp, MM_INTF_REQUIRED, MM_DIRECT_CHIP_SUPPORTED);
+MM_CLI_HANDLER(boardtype, MM_INTF_REQUIRED, MM_DIRECT_CHIP_SUPPORTED);
