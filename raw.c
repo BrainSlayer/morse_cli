@@ -53,7 +53,6 @@ int raw_init(struct morsectrl *mors, struct mm_argtable *mm_args)
     return 0;
 }
 
-
 int raw(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
@@ -261,4 +260,4 @@ exit:
     return ret;
 }
 
-MM_CLI_HANDLER(raw, MM_INTF_REQUIRED, MM_DIRECT_CHIP_NOT_SUPPORTED);
+MM_CLI_HANDLER_DEPRECATED(raw, MM_INTF_REQUIRED, MM_DIRECT_CHIP_NOT_SUPPORTED);

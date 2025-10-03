@@ -17,6 +17,7 @@ static enum slip_rx_status slip_rx_append(struct slip_rx_state *state, uint8_t c
 {
     if (state->length == state->buffer_length)
     {
+        state->frame_started = false;
         return SLIP_RX_BUFFER_LIMIT;
     }
 
@@ -32,8 +33,7 @@ enum slip_rx_status slip_rx(struct slip_rx_state *state, uint8_t c)
     {
         if (state->escape)
         {
-            state->escape = false;
-            state->length = 0;
+            slip_rx_state_reset(state);
             return SLIP_RX_ERROR;
         }
         else if (state->length > 0)
@@ -42,6 +42,7 @@ enum slip_rx_status slip_rx(struct slip_rx_state *state, uint8_t c)
         }
         else
         {
+            state->frame_started = true;
             return SLIP_RX_IN_PROGRESS;
         }
     }
@@ -58,7 +59,7 @@ enum slip_rx_status slip_rx(struct slip_rx_state *state, uint8_t c)
         }
         else
         {
-            state->length = 0;
+            slip_rx_state_reset(state);
             return SLIP_RX_ERROR;
         }
     }
@@ -67,9 +68,14 @@ enum slip_rx_status slip_rx(struct slip_rx_state *state, uint8_t c)
         state->escape = true;
         return SLIP_RX_IN_PROGRESS;
     }
-    else
+    else if (state->frame_started)
     {
         return slip_rx_append(state, c);
+    }
+    else
+    {
+        /* Drop the char on the floor and return */
+        return SLIP_RX_IN_PROGRESS;
     }
 }
 

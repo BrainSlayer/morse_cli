@@ -228,6 +228,15 @@ struct param_entry params[] = {
         .set_fn = param_set_uint32,
         .get_fn = param_get_uint32,
     },
+    {
+        .id = MORSE_CMD_PARAM_ID_BEACON_LOSS_COUNT,
+        .name = "beacon_loss_count",
+        .help = "Number of lost beacons before a beacon loss event is triggered",
+        .min_val = 1,
+        .max_val = UINT8_MAX,
+        .set_fn = param_set_uint32,
+        .get_fn = param_get_uint32,
+    },
 };
 
 static int get_line(const char **start, const char *end)

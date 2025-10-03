@@ -51,10 +51,10 @@ int ecsa_info(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     uint32_t freq_khz = 0;
-    uint8_t primary_channel_bandwidth = BANDWIDTH_DEFAULT;
-    uint8_t op_channel_bandwidth = BANDWIDTH_DEFAULT;
+    uint8_t primary_channel_bandwidth = MORSE_CMD_CHANNEL_BW_NOT_SET;
+    uint8_t op_channel_bandwidth = MORSE_CMD_CHANNEL_BW_NOT_SET;
     uint8_t global_operating_class = OPCLASS_DEFAULT;
-    uint8_t primary_1Mhz_chan_idx = PRIMARY_1MHZ_CHANNEL_INDEX_DEFAULT;
+    uint8_t primary_1Mhz_chan_idx = MORSE_CMD_CHANNEL_IDX_NOT_SET;
     uint8_t prim_chan_global_op_class = OPCLASS_DEFAULT;
     uint32_t s1g_capab = 0;
     struct morse_cmd_req_set_ecsa_s1g_info *req;

@@ -17,108 +17,111 @@
 #include <windows.h>
 #endif
 
-#define PACKED __attribute__((packed))
+#define PACKED                 __attribute__((packed))
 
-#define MORSE_CMD_SEMVER_MAJOR  54
-#define MORSE_CMD_SEMVER_MINOR  18
-#define MORSE_CMD_SEMVER_PATCH  0
+#define MORSE_CMD_SEMVER_MAJOR 56
+#define MORSE_CMD_SEMVER_MINOR 3
+#define MORSE_CMD_SEMVER_PATCH 0
 
-#define MORSE_CMD_TYPE_REQ  BIT(0)
-#define MORSE_CMD_TYPE_RESP BIT(1)
-#define MORSE_CMD_TYPE_EVT  BIT(2)
+#define MORSE_CMD_TYPE_REQ     BIT(0)
+#define MORSE_CMD_TYPE_RESP    BIT(1)
+#define MORSE_CMD_TYPE_EVT     BIT(2)
 
-#define MORSE_CMD_SSID_MAX_LEN  32
-#define MORSE_CMD_MAC_ADDR_LEN  6
+#define MORSE_CMD_SSID_MAX_LEN 32
+#define MORSE_CMD_MAC_ADDR_LEN 6
 
-enum morse_cmd_id {
+enum morse_cmd_id
+{
     /* Standard commands starting at 0x0000 */
-    MORSE_CMD_ID_SET_CHANNEL                = 0x0001,
-    MORSE_CMD_ID_GET_VERSION                = 0x0002,
-    MORSE_CMD_ID_ADD_INTERFACE              = 0x0004,
-    MORSE_CMD_ID_REMOVE_INTERFACE           = 0x0005,
-    MORSE_CMD_ID_BSS_CONFIG                 = 0x0006,
-    MORSE_CMD_ID_RPG                        = 0x0009,
-    MORSE_CMD_ID_DISABLE_KEY                = 0x000B,
-    MORSE_CMD_ID_SCAN_CONFIG                = 0x0010,
-    MORSE_CMD_ID_GET_CHANNEL_FULL           = 0x0013,
-    MORSE_CMD_ID_SET_STA_STATE              = 0x0014,
-    MORSE_CMD_ID_SET_BSS_COLOR              = 0x0015,
-    MORSE_CMD_ID_HEALTH_CHECK               = 0x0019,
-    MORSE_CMD_ID_CTS_SELF_PS                = 0x001A,
-    MORSE_CMD_ID_GET_CHANNEL_DTIM           = 0x001C,
-    MORSE_CMD_ID_GET_CHANNEL                = 0x001D,
-    MORSE_CMD_ID_SET_LONG_SLEEP_CONFIG      = 0x0021,
-    MORSE_CMD_ID_SET_DUTY_CYCLE             = 0x0022,
-    MORSE_CMD_ID_GET_DUTY_CYCLE             = 0x0023,
-    MORSE_CMD_ID_GET_MAX_TXPOWER            = 0x0024,
-    MORSE_CMD_ID_MAC_ADDR                   = 0x0029,
-    MORSE_CMD_ID_MPSW_CONFIG                = 0x0030,
-    MORSE_CMD_ID_STANDBY_MODE               = 0x0031,
-    MORSE_CMD_ID_DHCP_OFFLOAD               = 0x0032,
-    MORSE_CMD_ID_SET_KEEP_ALIVE_OFFLOAD     = 0x0033,
-    MORSE_CMD_ID_UAPSD_CONFIG               = 0x0040,
-    MORSE_CMD_ID_SET_WHITELIST              = 0x0045,
-    MORSE_CMD_ID_ARP_PERIODIC_REFRESH       = 0x0046,
-    MORSE_CMD_ID_SET_TCP_KEEPALIVE          = 0x0047,
-    MORSE_CMD_ID_FORCE_POWER_MODE           = 0x0048,
-    MORSE_CMD_ID_NET_IP                     = 0x004D,
-    MORSE_CMD_ID_TCP_PERIODIC               = 0x004E,
+    MORSE_CMD_ID_SET_CHANNEL = 0x0001,
+    MORSE_CMD_ID_GET_VERSION = 0x0002,
+    MORSE_CMD_ID_ADD_INTERFACE = 0x0004,
+    MORSE_CMD_ID_REMOVE_INTERFACE = 0x0005,
+    MORSE_CMD_ID_BSS_CONFIG = 0x0006,
+    MORSE_CMD_ID_RPG = 0x0009,
+    MORSE_CMD_ID_DISABLE_KEY = 0x000B,
+    MORSE_CMD_ID_SCAN_CONFIG = 0x0010,
+    MORSE_CMD_ID_GET_CHANNEL_FULL = 0x0013,
+    MORSE_CMD_ID_SET_STA_STATE = 0x0014,
+    MORSE_CMD_ID_SET_BSS_COLOR = 0x0015,
+    MORSE_CMD_ID_HEALTH_CHECK = 0x0019,
+    MORSE_CMD_ID_CTS_SELF_PS = 0x001A,
+    MORSE_CMD_ID_GET_CHANNEL_DTIM = 0x001C,
+    MORSE_CMD_ID_GET_CHANNEL = 0x001D,
+    MORSE_CMD_ID_SET_LONG_SLEEP_CONFIG = 0x0021,
+    MORSE_CMD_ID_SET_DUTY_CYCLE = 0x0022,
+    MORSE_CMD_ID_GET_DUTY_CYCLE = 0x0023,
+    MORSE_CMD_ID_GET_MAX_TXPOWER = 0x0024,
+    MORSE_CMD_ID_MAC_ADDR = 0x0029,
+    MORSE_CMD_ID_MPSW_CONFIG = 0x0030,
+    MORSE_CMD_ID_STANDBY_MODE = 0x0031,
+    MORSE_CMD_ID_DHCP_OFFLOAD = 0x0032,
+    MORSE_CMD_ID_SET_KEEP_ALIVE_OFFLOAD = 0x0033,
+    MORSE_CMD_ID_UAPSD_CONFIG = 0x0040,
+    MORSE_CMD_ID_SET_WHITELIST = 0x0045,
+    MORSE_CMD_ID_ARP_PERIODIC_REFRESH = 0x0046,
+    MORSE_CMD_ID_SET_TCP_KEEPALIVE = 0x0047,
+    MORSE_CMD_ID_FORCE_POWER_MODE = 0x0048,
+    MORSE_CMD_ID_NET_IP = 0x004D,
+    MORSE_CMD_ID_TCP_PERIODIC = 0x004E,
 
     /* Stats commands starting at 0x2000 */
-    MORSE_CMD_ID_HOST_STATS_LOG             = 0x2007,
-    MORSE_CMD_ID_HOST_STATS_RESET           = 0x2008,
-    MORSE_CMD_ID_MAC_STATS_LOG              = 0x200C,
-    MORSE_CMD_ID_MAC_STATS_RESET            = 0x200D,
-    MORSE_CMD_ID_UPHY_STATS_LOG             = 0x200E,
-    MORSE_CMD_ID_UPHY_STATS_RESET           = 0x200F,
+    MORSE_CMD_ID_HOST_STATS_LOG = 0x2007,
+    MORSE_CMD_ID_HOST_STATS_RESET = 0x2008,
+    MORSE_CMD_ID_MAC_STATS_LOG = 0x200C,
+    MORSE_CMD_ID_MAC_STATS_RESET = 0x200D,
+    MORSE_CMD_ID_UPHY_STATS_LOG = 0x200E,
+    MORSE_CMD_ID_UPHY_STATS_RESET = 0x200F,
 
     /* Driver commands starting at 0xA000 */
-    MORSE_CMD_ID_DRIVER_START               = 0xA000,
-    MORSE_CMD_ID_SET_LISTEN_INTERVAL        = 0xA003,
-    MORSE_CMD_ID_SET_AMPDU                  = 0xA004,
-    MORSE_CMD_ID_COREDUMP                   = 0xA006,
-    MORSE_CMD_ID_SET_S1G_OP_CLASS           = 0xA007,
-    MORSE_CMD_ID_SEND_WAKE_ACTION_FRAME     = 0xA008,
-    MORSE_CMD_ID_VENDOR_IE_CONFIG           = 0xA009,
-    MORSE_CMD_ID_SET_TWT_CONF               = 0xA010,
-    MORSE_CMD_ID_GET_AVAILABLE_CHANNELS     = 0xA011,
-    MORSE_CMD_ID_SET_ECSA_S1G_INFO          = 0xA012,
-    MORSE_CMD_ID_GET_HW_VERSION             = 0xA013,
-    MORSE_CMD_ID_CAC                        = 0xA014,
-    MORSE_CMD_ID_DRIVER_SET_DUTY_CYCLE      = 0xA015,
-    MORSE_CMD_ID_MBSSID                     = 0xA016,
-    MORSE_CMD_ID_SET_MESH_CONFIG            = 0xA018,
-    MORSE_CMD_ID_SET_MCBA_CONF              = 0xA019,
-    MORSE_CMD_ID_DYNAMIC_PEERING_CONFIG     = 0xA020,
-    MORSE_CMD_ID_CONFIG_RAW                 = 0xA021,
+    MORSE_CMD_ID_DRIVER_START = 0xA000,
+    MORSE_CMD_ID_SET_LISTEN_INTERVAL = 0xA003,
+    MORSE_CMD_ID_SET_AMPDU = 0xA004,
+    MORSE_CMD_ID_COREDUMP = 0xA006,
+    MORSE_CMD_ID_SET_S1G_OP_CLASS = 0xA007,
+    MORSE_CMD_ID_SEND_WAKE_ACTION_FRAME = 0xA008,
+    MORSE_CMD_ID_VENDOR_IE_CONFIG = 0xA009,
+    MORSE_CMD_ID_SET_TWT_CONF = 0xA010,
+    MORSE_CMD_ID_GET_AVAILABLE_CHANNELS = 0xA011,
+    MORSE_CMD_ID_SET_ECSA_S1G_INFO = 0xA012,
+    MORSE_CMD_ID_GET_HW_VERSION = 0xA013,
+    MORSE_CMD_ID_CAC = 0xA014,
+    MORSE_CMD_ID_DRIVER_SET_DUTY_CYCLE = 0xA015,
+    MORSE_CMD_ID_MBSSID = 0xA016,
+    MORSE_CMD_ID_SET_MESH_CONFIG = 0xA018,
+    MORSE_CMD_ID_SET_MCBA_CONF = 0xA019,
+    MORSE_CMD_ID_DYNAMIC_PEERING_CONFIG = 0xA020,
+    MORSE_CMD_ID_CONFIG_RAW = 0xA021,
     MORSE_CMD_ID_DRIVER_END,
 
     /* Fullmac commands starting at 0x0800 */
-    MORSE_CMD_ID_GET_RC_STATS               = 0x0806,
+    MORSE_CMD_ID_GET_RC_STATS = 0x0806,
 
-    /* Temporary commands starting at 0x0100 */
-    MORSE_CMD_ID_SET_TX_PKT_LIFETIME_USECS  = 0x100C,
-    MORSE_CMD_ID_SET_PHYSM_WATCHDOG         = 0x100D,
+    /* Temporary commands starting at 0x1000 */
+    MORSE_CMD_ID_SET_TX_PKT_LIFETIME_USECS = 0x100C,
+    MORSE_CMD_ID_SET_PHYSM_WATCHDOG = 0x100D,
+    MORSE_CMD_ID_TX_POLAR = 0x100E,
 
     /* Test commands starting at 0x8000 */
-    MORSE_CMD_ID_OTP                        = 0x8014,
-    MORSE_CMD_ID_MAX_AMPDU_LENGTH           = 0x8016,
+    MORSE_CMD_ID_OTP = 0x8014,
+    MORSE_CMD_ID_MAX_AMPDU_LENGTH = 0x8016,
+    MORSE_CMD_ID_MEDIUM_EVAL = 0x811C,
 
     /* The get/set parameter command at 0x003E */
-    MORSE_CMD_ID_GET_SET_GENERIC_PARAM      = 0x003E,
+    MORSE_CMD_ID_GET_SET_GENERIC_PARAM = 0x003E,
 
     /* Deprecated commands - do not use */
-    MORSE_CMD_ID_HOST_STATS_LOG_DEPRECATED  = 0x0007,
-    MORSE_CMD_ID_MAC_STATS_LOG_DEPRECATED   = 0x000C,
-    MORSE_CMD_ID_UPHY_STATS_LOG_DEPRECATED  = 0x000E,
-    MORSE_CMD_ID_BLOCKACK                   = 0x0017,
-    MORSE_CMD_ID_CFG_ACI_SCAN               = 0x001F,
-    MORSE_CMD_ID_START_SAMPLE_PLAY          = 0x8002,
-    MORSE_CMD_ID_STOP_SAMPLE_PLAY           = 0x8003,
-    MORSE_CMD_ID_SEND_PACKET_AS_AMPDU       = 0x8004,
-    MORSE_CMD_ID_SET_MAC_ACK_TIMEOUT        = 0x8008,
-    MORSE_CMD_ID_SPOOF_MANAGED_CALIBRATION  = 0x8010,
-    MORSE_CMD_ID_SET_RAW_DEPRECATED         = 0xA005,
+    MORSE_CMD_ID_HOST_STATS_LOG_DEPRECATED = 0x0007,
+    MORSE_CMD_ID_MAC_STATS_LOG_DEPRECATED = 0x000C,
+    MORSE_CMD_ID_UPHY_STATS_LOG_DEPRECATED = 0x000E,
+    MORSE_CMD_ID_BLOCKACK = 0x0017,
+    MORSE_CMD_ID_CFG_ACI_SCAN = 0x001F,
+    MORSE_CMD_ID_START_SAMPLE_PLAY = 0x8002,
+    MORSE_CMD_ID_STOP_SAMPLE_PLAY = 0x8003,
+    MORSE_CMD_ID_SEND_PACKET_AS_AMPDU = 0x8004,
+    MORSE_CMD_ID_SET_MAC_ACK_TIMEOUT = 0x8008,
+    MORSE_CMD_ID_SPOOF_MANAGED_CALIBRATION = 0x8010,
+    MORSE_CMD_ID_SET_RAW_DEPRECATED = 0xA005,
 };
 
 /**
@@ -129,7 +132,8 @@ struct PACKED morse_cmd_mac_addr
     uint8_t octet[MORSE_CMD_MAC_ADDR_LEN];
 };
 
-enum morse_cmd_ocs_subcmd {
+enum morse_cmd_ocs_subcmd
+{
     MORSE_CMD_OCS_SUBCMD_CONFIG = 1,
     MORSE_CMD_OCS_SUBCMD_STATUS = 2,
 };
@@ -153,23 +157,42 @@ struct PACKED morse_cmd_header
     __le16 pad;
 };
 
-enum morse_cmd_dot11_proto_mode {
+/**
+ * Setting this value in the `SET_CHANNEL` command will cause the currently configured bandwidth to
+ * be used.
+ */
+#define MORSE_CMD_CHANNEL_BW_NOT_SET 0xFF
+
+/**
+ * Setting this value in the `SET_CHANNEL` command will cause the currently configured channel index
+ * to be used.
+ */
+#define MORSE_CMD_CHANNEL_IDX_NOT_SET 0xFF
+
+/**
+ * Setting this value in the `SET_CHANNEL` command will cause the currently configured frequency to
+ * be used.
+ */
+#define MORSE_CMD_CHANNEL_FREQ_NOT_SET 0xFFFFFFFF
+
+enum morse_cmd_dot11_proto_mode
+{
     /** 802.11ah S1G mode */
-    MORSE_CMD_DOT11_PROTO_MODE_AH       = 0,
+    MORSE_CMD_DOT11_PROTO_MODE_AH = 0,
     /** 802.11b (DSSS only) mode */
-    MORSE_CMD_DOT11_PROTO_MODE_B        = 1,
+    MORSE_CMD_DOT11_PROTO_MODE_B = 1,
     /** 802.11bg (Legacy only) mode */
-    MORSE_CMD_DOT11_PROTO_MODE_BG       = 2,
+    MORSE_CMD_DOT11_PROTO_MODE_BG = 2,
     /** 802.11gn (OFDM only) mode */
-    MORSE_CMD_DOT11_PROTO_MODE_GN       = 3,
+    MORSE_CMD_DOT11_PROTO_MODE_GN = 3,
     /** 802.11bgn (Full compatibility) mode */
-    MORSE_CMD_DOT11_PROTO_MODE_BGN      = 4,
+    MORSE_CMD_DOT11_PROTO_MODE_BGN = 4,
     /** Invalid mode, PHY is not configured */
-    MORSE_CMD_DOT11_PROTO_MODE_INVALID  = 5,
+    MORSE_CMD_DOT11_PROTO_MODE_INVALID = 5,
 };
 
 /**
- * morse_cmd_req_set_channel - request message for SET_CHANNEL
+ * @brief Request message for SET_CHANNEL
  *
  * In 802.11ah a BSS supports operating channel widths of 1, 2, 4, 8 and 16 MHz
  * and is required to use a 1MHz or 2MHz primary channel width.
@@ -220,7 +243,7 @@ struct PACKED morse_cmd_req_set_channel
 };
 
 /**
- * morse_cmd_resp_set_channel - response message for SET_CHANNEL
+ * @brief Response message for SET_CHANNEL
  *
  * Returns the power of the channel set
  */
@@ -231,7 +254,7 @@ struct PACKED morse_cmd_resp_set_channel
 };
 
 /**
- * morse_cmd_req_get_channel - request message for GET_CHANNEL
+ * @brief Request message for GET_CHANNEL
  *
  * Get the current channel from the firmware
  */
@@ -240,7 +263,7 @@ struct PACKED morse_cmd_req_get_channel
 };
 
 /**
- * morse_cmd_resp_get_channel - response message for GET_CHANNEL
+ * @brief Response message for GET_CHANNEL
  *
  * Confirm message for get current channel
  */
@@ -263,14 +286,14 @@ struct PACKED morse_cmd_resp_get_channel
 #define MORSE_CMD_MAX_VERSION_LEN 128
 
 /**
- * morse_cmd_req_get_version - request message for GET_VERSION
+ * @brief Request message for GET_VERSION
  */
 struct PACKED morse_cmd_req_get_version
 {
 };
 
 /**
- * morse_cmd_resp_get_version - response message for GET_VERSION
+ * @brief Response message for GET_VERSION
  *
  * Structure for a get version confirm
  */
@@ -286,7 +309,7 @@ struct PACKED morse_cmd_resp_get_version
 };
 
 /**
- * morse_cmd_req_get_max_txpower - request message for GET_MAX_TXPOWER
+ * @brief Request message for GET_MAX_TXPOWER
  *
  * Retrieve the maximum TX power that the chip can do
  */
@@ -295,7 +318,7 @@ struct PACKED morse_cmd_req_get_max_txpower
 };
 
 /**
- * morse_cmd_resp_get_max_txpower - response message for GET_MAX_TXPOWER
+ * @brief Response message for GET_MAX_TXPOWER
  */
 struct PACKED morse_cmd_resp_get_max_txpower
 {
@@ -303,27 +326,26 @@ struct PACKED morse_cmd_resp_get_max_txpower
     __sle32 power_qdbm;
 };
 
-enum morse_cmd_interface_type {
+enum morse_cmd_interface_type
+{
     /** An invalid interface type */
-    MORSE_CMD_INTERFACE_TYPE_INVALID    = 0,
+    MORSE_CMD_INTERFACE_TYPE_INVALID = 0,
     /** A station interface */
-    MORSE_CMD_INTERFACE_TYPE_STA        = 1,
+    MORSE_CMD_INTERFACE_TYPE_STA = 1,
     /** An access point interface */
-    MORSE_CMD_INTERFACE_TYPE_AP         = 2,
+    MORSE_CMD_INTERFACE_TYPE_AP = 2,
     /** A monitor mode interface */
-    MORSE_CMD_INTERFACE_TYPE_MON        = 3,
+    MORSE_CMD_INTERFACE_TYPE_MON = 3,
     /** Independent BSS (IBSS) interface */
-    MORSE_CMD_INTERFACE_TYPE_ADHOC      = 4,
+    MORSE_CMD_INTERFACE_TYPE_ADHOC = 4,
     /** Mesh interface */
-    MORSE_CMD_INTERFACE_TYPE_MESH       = 5,
+    MORSE_CMD_INTERFACE_TYPE_MESH = 5,
     /** The last valid interface type */
-    MORSE_CMD_INTERFACE_TYPE_LAST       = MORSE_CMD_INTERFACE_TYPE_MESH,
-    /** The maximum interface type value */
-    MORSE_CMD_INTERFACE_TYPE_MAX        = UINT32_MAX,
+    MORSE_CMD_INTERFACE_TYPE_LAST = MORSE_CMD_INTERFACE_TYPE_MESH,
 };
 
 /**
- * morse_cmd_req_add_interface - request message for ADD_INTERFACE
+ * @brief Request message for ADD_INTERFACE
  */
 struct PACKED morse_cmd_req_add_interface
 {
@@ -334,28 +356,28 @@ struct PACKED morse_cmd_req_add_interface
 };
 
 /**
- * morse_cmd_resp_add_interface - response message for ADD_INTERFACE
+ * @brief Response message for ADD_INTERFACE
  */
 struct PACKED morse_cmd_resp_add_interface
 {
 };
 
 /**
- * morse_cmd_req_remove_interface - request message for REMOVE_INTERFACE
+ * @brief Request message for REMOVE_INTERFACE
  */
 struct PACKED morse_cmd_req_remove_interface
 {
 };
 
 /**
- * morse_cmd_resp_remove_interface - response message for REMOVE_INTERFACE
+ * @brief Response message for REMOVE_INTERFACE
  */
 struct PACKED morse_cmd_resp_remove_interface
 {
 };
 
 /**
- * morse_cmd_req_bss_config - request message for BSS_CONFIG
+ * @brief Request message for BSS_CONFIG
  *
  * @note If this command is confirmed with status success, then the AP is active and firmware will
  * start to generate interrupts requesting a beacon
@@ -373,21 +395,22 @@ struct PACKED morse_cmd_req_bss_config
 };
 
 /**
- * morse_cmd_resp_bss_config - response message for BSS_CONFIG
+ * @brief Response message for BSS_CONFIG
  */
 struct PACKED morse_cmd_resp_bss_config
 {
 };
 
-enum morse_cmd_rpg_id {
-    MORSE_CMD_RPG_ID_START_TX           = 256,
-    MORSE_CMD_RPG_ID_STOP_TX            = 257,
-    MORSE_CMD_RPG_ID_GET_STATS          = 258,
-    MORSE_CMD_RPG_ID_RESET_STATS        = 259,
-    MORSE_CMD_RPG_ID_SET_SOURCE_ADDR    = 260,
-    MORSE_CMD_RPG_ID_SET_DEST_ADDR      = 261,
-    MORSE_CMD_RPG_ID_FORCE_AMPDU        = 262,
-    MORSE_CMD_RPG_ID_FORCE_TX_RETRY     = 263,
+enum morse_cmd_rpg_id
+{
+    MORSE_CMD_RPG_ID_START_TX = 256,
+    MORSE_CMD_RPG_ID_STOP_TX = 257,
+    MORSE_CMD_RPG_ID_GET_STATS = 258,
+    MORSE_CMD_RPG_ID_RESET_STATS = 259,
+    MORSE_CMD_RPG_ID_SET_SOURCE_ADDR = 260,
+    MORSE_CMD_RPG_ID_SET_DEST_ADDR = 261,
+    MORSE_CMD_RPG_ID_FORCE_AMPDU = 262,
+    MORSE_CMD_RPG_ID_FORCE_TX_RETRY = 263,
 };
 
 /**
@@ -457,7 +480,7 @@ struct PACKED morse_cmd_rpg_resp_get_statistics
 };
 
 /**
- * morse_cmd_req_rpg - request message for RPG
+ * @brief Request message for RPG
  *
  * RPG shouldn't be enabled during normal driver operation
  */
@@ -465,7 +488,9 @@ struct PACKED morse_cmd_req_rpg
 {
     /** RPG subcommand @ref morse_cmd_rpg_id */
     __le16 sub_cmd;
-    union {
+
+    union
+    {
         uint8_t opaque[0];
         struct morse_cmd_rpg_start_tx start;
         struct morse_cmd_rpg_set_source_addr set_source;
@@ -476,18 +501,19 @@ struct PACKED morse_cmd_req_rpg
 };
 
 /**
- * morse_cmd_resp_rpg - response message for RPG
+ * @brief Response message for RPG
  */
 struct PACKED morse_cmd_resp_rpg
 {
-    union {
+    union
+    {
         uint8_t opaque[0];
         struct morse_cmd_rpg_resp_get_statistics stats;
     };
 };
 
 /**
- * morse_cmd_req_scan_config - request message for SCAN_CONFIG
+ * @brief Request message for SCAN_CONFIG
  */
 struct PACKED morse_cmd_req_scan_config
 {
@@ -498,7 +524,7 @@ struct PACKED morse_cmd_req_scan_config
 };
 
 /**
- * morse_cmd_resp_scan_config - response message for SCAN_CONFIG
+ * @brief Response message for SCAN_CONFIG
  */
 struct PACKED morse_cmd_resp_scan_config
 {
@@ -509,7 +535,7 @@ struct PACKED morse_cmd_resp_scan_config
 #define MORSE_CMD_STA_FLAG_S1G_PV1 BIT(0)
 
 /**
- * morse_cmd_req_set_sta_state - request message for SET_STA_STATE
+ * @brief Request message for SET_STA_STATE
  */
 struct PACKED morse_cmd_req_set_sta_state
 {
@@ -526,14 +552,14 @@ struct PACKED morse_cmd_req_set_sta_state
 };
 
 /**
- * morse_cmd_resp_set_sta_state - response message for SET_STA_STATE
+ * @brief Response message for SET_STA_STATE
  */
 struct PACKED morse_cmd_resp_set_sta_state
 {
 };
 
 /**
- * morse_cmd_req_set_bss_color - request message for SET_BSS_COLOR
+ * @brief Request message for SET_BSS_COLOR
  */
 struct PACKED morse_cmd_req_set_bss_color
 {
@@ -542,28 +568,28 @@ struct PACKED morse_cmd_req_set_bss_color
 };
 
 /**
- * morse_cmd_resp_set_bss_color - response message for SET_BSS_COLOR
+ * @brief Response message for SET_BSS_COLOR
  */
 struct PACKED morse_cmd_resp_set_bss_color
 {
 };
 
 /**
- * morse_cmd_req_health_check - request message for HEALTH_CHECK
+ * @brief Request message for HEALTH_CHECK
  */
 struct PACKED morse_cmd_req_health_check
 {
 };
 
 /**
- * morse_cmd_resp_health_check - response message for HEALTH_CHECK
+ * @brief Response message for HEALTH_CHECK
  */
 struct PACKED morse_cmd_resp_health_check
 {
 };
 
 /**
- * morse_cmd_req_cts_self_ps - request message for CTS_SELF_PS
+ * @brief Request message for CTS_SELF_PS
  *
  * Enable/disable CTS-to-self PS beacon mode
  */
@@ -573,14 +599,14 @@ struct PACKED morse_cmd_req_cts_self_ps
 };
 
 /**
- * morse_cmd_resp_cts_self_ps - response message for CTS_SELF_PS
+ * @brief Response message for CTS_SELF_PS
  */
 struct PACKED morse_cmd_resp_cts_self_ps
 {
 };
 
 /**
- * morse_cmd_req_set_long_sleep_config - request message for SET_LONG_SLEEP_CONFIG
+ * @brief Request message for SET_LONG_SLEEP_CONFIG
  *
  * @note This is used for WNM sleep to enable us to go deaf to traffic
  */
@@ -591,21 +617,22 @@ struct PACKED morse_cmd_req_set_long_sleep_config
 };
 
 /**
- * morse_cmd_resp_set_long_sleep_config - response message for SET_LONG_SLEEP_CONFIG
+ * @brief Response message for SET_LONG_SLEEP_CONFIG
  */
 struct PACKED morse_cmd_resp_set_long_sleep_config
 {
 };
 
-#define MORSE_CMD_DUTY_CYCLE_SET_CFG_DUTY_CYCLE         BIT(0)
-#define MORSE_CMD_DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP  BIT(1)
-#define MORSE_CMD_DUTY_CYCLE_SET_CFG_EXT                BIT(2)
-#define MORSE_CMD_DUTY_CYCLE_SET_CFG_BURST_RECORD_UNIT  BIT(3)
+#define MORSE_CMD_DUTY_CYCLE_SET_CFG_DUTY_CYCLE        BIT(0)
+#define MORSE_CMD_DUTY_CYCLE_SET_CFG_OMIT_CONTROL_RESP BIT(1)
+#define MORSE_CMD_DUTY_CYCLE_SET_CFG_EXT               BIT(2)
+#define MORSE_CMD_DUTY_CYCLE_SET_CFG_BURST_RECORD_UNIT BIT(3)
 
-enum morse_cmd_duty_cycle_mode {
-    MORSE_CMD_DUTY_CYCLE_MODE_SPREAD    = 0,
-    MORSE_CMD_DUTY_CYCLE_MODE_BURST     = 1,
-    MORSE_CMD_DUTY_CYCLE_MODE_LAST      = MORSE_CMD_DUTY_CYCLE_MODE_BURST,
+enum morse_cmd_duty_cycle_mode
+{
+    MORSE_CMD_DUTY_CYCLE_MODE_SPREAD = 0,
+    MORSE_CMD_DUTY_CYCLE_MODE_BURST = 1,
+    MORSE_CMD_DUTY_CYCLE_MODE_LAST = MORSE_CMD_DUTY_CYCLE_MODE_BURST,
 };
 
 /**
@@ -644,7 +671,7 @@ struct PACKED morse_cmd_duty_cycle_configuration_ext
 };
 
 /**
- * morse_cmd_req_set_duty_cycle - request message for SET_DUTY_CYCLE
+ * @brief Request message for SET_DUTY_CYCLE
  */
 struct PACKED morse_cmd_req_set_duty_cycle
 {
@@ -654,7 +681,7 @@ struct PACKED morse_cmd_req_set_duty_cycle
 };
 
 /**
- * morse_cmd_resp_get_duty_cycle - response message for GET_DUTY_CYCLE
+ * @brief Response message for GET_DUTY_CYCLE
  */
 struct PACKED morse_cmd_resp_get_duty_cycle
 {
@@ -663,7 +690,7 @@ struct PACKED morse_cmd_resp_get_duty_cycle
 };
 
 /**
- * morse_cmd_req_mac_addr - request message for MAC_ADDR
+ * @brief Request message for MAC_ADDR
  */
 struct PACKED morse_cmd_req_mac_addr
 {
@@ -672,16 +699,16 @@ struct PACKED morse_cmd_req_mac_addr
 };
 
 /**
- * morse_cmd_resp_mac_addr - response message for MAC_ADDR
+ * @brief Response message for MAC_ADDR
  */
 struct PACKED morse_cmd_resp_mac_addr
 {
     uint8_t octet[MORSE_CMD_MAC_ADDR_LEN];
 };
 
-#define MORSE_CMD_SET_MPSW_CFG_AIRTIME_BOUNDS   BIT(0)
-#define MORSE_CMD_SET_MPSW_CFG_PKT_SPC_WIN_LEN  BIT(1)
-#define MORSE_CMD_SET_MPSW_CFG_ENABLED          BIT(2)
+#define MORSE_CMD_SET_MPSW_CFG_AIRTIME_BOUNDS  BIT(0)
+#define MORSE_CMD_SET_MPSW_CFG_PKT_SPC_WIN_LEN BIT(1)
+#define MORSE_CMD_SET_MPSW_CFG_ENABLED         BIT(2)
 
 /**
  * MPSW configuration structure
@@ -699,7 +726,7 @@ struct PACKED morse_cmd_mpsw_configuration
 };
 
 /**
- * morse_cmd_req_mpsw_config - request message for MPSW_CONFIG
+ * @brief Request message for MPSW_CONFIG
  */
 struct PACKED morse_cmd_req_mpsw_config
 {
@@ -708,7 +735,7 @@ struct PACKED morse_cmd_req_mpsw_config
 };
 
 /**
- * morse_cmd_resp_mpsw_config - response message for MPSW_CONFIG
+ * @brief Response message for MPSW_CONFIG
  */
 struct PACKED morse_cmd_resp_mpsw_config
 {
@@ -716,7 +743,7 @@ struct PACKED morse_cmd_resp_mpsw_config
 };
 
 /**
- * morse_cmd_req_disable_key - request message for DISABLE_KEY
+ * @brief Request message for DISABLE_KEY
  */
 struct PACKED morse_cmd_req_disable_key
 {
@@ -729,7 +756,7 @@ struct PACKED morse_cmd_req_disable_key
 };
 
 /**
- * morse_cmd_resp_disable_key - response message for DISABLE_KEY
+ * @brief Response message for DISABLE_KEY
  */
 struct PACKED morse_cmd_resp_disable_key
 {
@@ -741,56 +768,55 @@ struct PACKED morse_cmd_resp_disable_key
 /** The maximum allowed length of a user filter to apply to wake frames */
 #define MORSE_CMD_STANDBY_WAKE_FRAME_USER_FILTER_MAX_LEN 64
 
-enum morse_cmd_standby_mode {
+enum morse_cmd_standby_mode
+{
     /** The external host is indicating that it's now awake */
-    MORSE_CMD_STANDBY_MODE_EXIT                 = 0,
+    MORSE_CMD_STANDBY_MODE_EXIT = 0,
     /** The external host is indicating that it's going into standby mode */
-    MORSE_CMD_STANDBY_MODE_ENTER                = 1,
+    MORSE_CMD_STANDBY_MODE_ENTER = 1,
     /** This version of the config command has since been deprecated (see v3 below) */
-    MORSE_CMD_STANDBY_MODE_SET_CONFIG_V1        = 2,
+    MORSE_CMD_STANDBY_MODE_SET_CONFIG_V1 = 2,
     /** The external host provides a payload that gets appended to status frames */
-    MORSE_CMD_STANDBY_MODE_SET_STATUS_PAYLOAD   = 3,
+    MORSE_CMD_STANDBY_MODE_SET_STATUS_PAYLOAD = 3,
     /** The external host provides a filter to be applied to incoming standby wake frames */
-    MORSE_CMD_STANDBY_MODE_SET_WAKE_FILTER      = 4,
+    MORSE_CMD_STANDBY_MODE_SET_WAKE_FILTER = 4,
     /** This version of the config command has since been deprecated (see v3 below) */
-    MORSE_CMD_STANDBY_MODE_SET_CONFIG_V2        = 5,
+    MORSE_CMD_STANDBY_MODE_SET_CONFIG_V2 = 5,
     /** The external host sets a number of configuration options for standby mode */
-    MORSE_CMD_STANDBY_MODE_SET_CONFIG_V3        = 6,
-    /** Force enum to UINT32 */
-    MORSE_CMD_STANDBY_MODE_MAX                  = UINT32_MAX,
+    MORSE_CMD_STANDBY_MODE_SET_CONFIG_V3 = 6,
 };
 
-enum morse_cmd_standby_mode_exit_reason {
+enum morse_cmd_standby_mode_exit_reason
+{
     /** No specific reason for exiting standby mode */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_NONE                     = 0,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_NONE = 0,
     /** The STA has received the wakeup frame */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_WAKEUP_FRAME             = 1,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_WAKEUP_FRAME = 1,
     /** The STA needs to (re)associate */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_ASSOCIATE                = 2,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_ASSOCIATE = 2,
     /** The STA's external input pin has fired */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_EXT_INPUT                = 3,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_EXT_INPUT = 3,
     /** Whitelisted packet received */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_WHITELIST_PKT            = 4,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_WHITELIST_PKT = 4,
     /** TCP connection lost */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST      = 5,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_TCP_CONNECTION_LOST = 5,
     /** HW scan is not enabled */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_HW_SCAN_NOT_ENABLED      = 6,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_HW_SCAN_NOT_ENABLED = 6,
     /** HW scan failed to start */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START  = 7,
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START = 7,
     /** Max exit reason enum value */
-    MORSE_CMD_STANDBY_MODE_EXIT_REASON_MAX                      =
+    MORSE_CMD_STANDBY_MODE_EXIT_REASON_MAX =
         MORSE_CMD_STANDBY_MODE_EXIT_REASON_HW_SCAN_FAILED_TO_START,
 };
 
-enum morse_cmd_ieee80211_sta_state {
-    MORSE_CMD_IEEE80211_STA_STATE_NOTEXIST          = 0,
-    MORSE_CMD_IEEE80211_STA_STATE_NONE              = 1,
-    MORSE_CMD_IEEE80211_STA_STATE_AUTHENTICATED     = 2,
-    MORSE_CMD_IEEE80211_STA_STATE_ASSOCIATED        = 3,
-    MORSE_CMD_IEEE80211_STA_STATE_AUTHORIZED        = 4,
+enum morse_cmd_ieee80211_sta_state
+{
+    MORSE_CMD_IEEE80211_STA_STATE_NOTEXIST = 0,
+    MORSE_CMD_IEEE80211_STA_STATE_NONE = 1,
+    MORSE_CMD_IEEE80211_STA_STATE_AUTHENTICATED = 2,
+    MORSE_CMD_IEEE80211_STA_STATE_ASSOCIATED = 3,
+    MORSE_CMD_IEEE80211_STA_STATE_AUTHORIZED = 4,
     MORSE_CMD_IEEE80211_STA_STATE_AUTHORIZED_ASLEEP = 5,
-    /** Max State value is uint8_t max value */
-    MORSE_CMD_IEEE80211_STA_STATE_MAX               = UINT8_MAX,
 };
 
 /**
@@ -865,7 +891,7 @@ struct PACKED morse_cmd_standby_mode_exit
 };
 
 /**
- * morse_cmd_req_standby_mode - request message for STANDBY_MODE
+ * @brief Request message for STANDBY_MODE
  *
  * Structure for Configuring MM standby mode
  */
@@ -873,7 +899,9 @@ struct PACKED morse_cmd_req_standby_mode
 {
     /** Standby Mode subcommands, see @ref morse_cmd_standby_mode */
     __le32 cmd;
-    union {
+
+    union
+    {
         uint8_t opaque[0];
         /** Valid for MORSE_CMD_STANDBY_MODE_SET_CONFIG cmd */
         struct morse_cmd_standby_set_config config;
@@ -887,58 +915,57 @@ struct PACKED morse_cmd_req_standby_mode
 };
 
 /**
- * morse_cmd_resp_standby_mode - response message for STANDBY_MODE
+ * @brief Response message for STANDBY_MODE
  *
  * Response structure for MM standby mode command. For status, see @ref morse_cmd_standby_mode.
  */
 struct PACKED morse_cmd_resp_standby_mode
 {
-    union {
+    union
+    {
         uint8_t opaque[0];
         struct morse_cmd_standby_mode_exit info;
     };
 };
 
-enum morse_cmd_dhcp_opcode {
+enum morse_cmd_dhcp_opcode
+{
     /** Enable the DHCP client */
-    MORSE_CMD_DHCP_OPCODE_ENABLE            = 0,
+    MORSE_CMD_DHCP_OPCODE_ENABLE = 0,
     /** Do a DHCP discovery and obtain a lease */
-    MORSE_CMD_DHCP_OPCODE_DO_DISCOVERY      = 1,
+    MORSE_CMD_DHCP_OPCODE_DO_DISCOVERY = 1,
     /** Return the current lease */
-    MORSE_CMD_DHCP_OPCODE_GET_LEASE         = 2,
+    MORSE_CMD_DHCP_OPCODE_GET_LEASE = 2,
     /** Clear the current lease */
-    MORSE_CMD_DHCP_OPCODE_CLEAR_LEASE       = 3,
+    MORSE_CMD_DHCP_OPCODE_CLEAR_LEASE = 3,
     /** Trigger a renewal of the current lease */
-    MORSE_CMD_DHCP_OPCODE_RENEW_LEASE       = 4,
+    MORSE_CMD_DHCP_OPCODE_RENEW_LEASE = 4,
     /** Trigger a rebinding of the current lease */
-    MORSE_CMD_DHCP_OPCODE_REBIND_LEASE      = 5,
+    MORSE_CMD_DHCP_OPCODE_REBIND_LEASE = 5,
     /** Ask the FW to send a lease update event to the driver */
     MORSE_CMD_DHCP_OPCODE_SEND_LEASE_UPDATE = 6,
-    /** Force uint32 */
-    MORSE_CMD_DHCP_OPCODE_LAST              = UINT32_MAX,
 };
 
-enum morse_cmd_dhcp_retcode {
+enum morse_cmd_dhcp_retcode
+{
     /** Command completed successfully */
-    MORSE_CMD_DHCP_RETCODE_SUCCESS          = 0,
+    MORSE_CMD_DHCP_RETCODE_SUCCESS = 0,
     /** DHCP Client is disabled */
-    MORSE_CMD_DHCP_RETCODE_NOT_ENABLED      = 1,
+    MORSE_CMD_DHCP_RETCODE_NOT_ENABLED = 1,
     /** DHCP Client is already enabled */
-    MORSE_CMD_DHCP_RETCODE_ALREADY_ENABLED  = 2,
+    MORSE_CMD_DHCP_RETCODE_ALREADY_ENABLED = 2,
     /** No current bound lease */
-    MORSE_CMD_DHCP_RETCODE_NO_LEASE         = 3,
+    MORSE_CMD_DHCP_RETCODE_NO_LEASE = 3,
     /** DHCP client already has a lease */
-    MORSE_CMD_DHCP_RETCODE_HAVE_LEASE       = 4,
+    MORSE_CMD_DHCP_RETCODE_HAVE_LEASE = 4,
     /** DHCP client is currently busy (discovering or renewing) */
-    MORSE_CMD_DHCP_RETCODE_BUSY             = 5,
+    MORSE_CMD_DHCP_RETCODE_BUSY = 5,
     /** Invalid vif specified */
-    MORSE_CMD_DHCP_RETCODE_BAD_VIF          = 6,
-    /** Force uint32 */
-    MORSE_CMD_DHCP_RETCODE_LAST             = UINT32_MAX,
+    MORSE_CMD_DHCP_RETCODE_BAD_VIF = 6,
 };
 
 /**
- * morse_cmd_req_dhcp_offload - request message for DHCP_OFFLOAD
+ * @brief Request message for DHCP_OFFLOAD
  */
 struct PACKED morse_cmd_req_dhcp_offload
 {
@@ -947,7 +974,7 @@ struct PACKED morse_cmd_req_dhcp_offload
 };
 
 /**
- * morse_cmd_resp_dhcp_offload - response message for DHCP_OFFLOAD
+ * @brief Response message for DHCP_OFFLOAD
  */
 struct PACKED morse_cmd_resp_dhcp_offload
 {
@@ -964,7 +991,7 @@ struct PACKED morse_cmd_resp_dhcp_offload
 };
 
 /**
- * morse_cmd_req_set_keep_alive_offload - request message for SET_KEEP_ALIVE_OFFLOAD
+ * @brief Request message for SET_KEEP_ALIVE_OFFLOAD
  */
 struct PACKED morse_cmd_req_set_keep_alive_offload
 {
@@ -975,7 +1002,7 @@ struct PACKED morse_cmd_req_set_keep_alive_offload
 };
 
 /**
- * morse_cmd_req_uapsd_config - request message for UAPSD_CONFIG
+ * @brief Request message for UAPSD_CONFIG
  */
 struct PACKED morse_cmd_req_uapsd_config
 {
@@ -986,7 +1013,7 @@ struct PACKED morse_cmd_req_uapsd_config
 };
 
 /**
- * morse_cmd_resp_uapsd_config - response message for UAPSD_CONFIG
+ * @brief Response message for UAPSD_CONFIG
  */
 struct PACKED morse_cmd_resp_uapsd_config
 {
@@ -997,7 +1024,7 @@ struct PACKED morse_cmd_resp_uapsd_config
 #define MORSE_CMD_WHITELIST_FLAGS_CLEAR BIT(0)
 
 /**
- * morse_cmd_req_set_whitelist - request message for SET_WHITELIST
+ * @brief Request message for SET_WHITELIST
  *
  * @brief Configure whitelist filtering
  */
@@ -1032,23 +1059,23 @@ struct PACKED morse_cmd_arp_periodic_params
 };
 
 /**
- * morse_cmd_req_arp_periodic_refresh - request message for ARP_PERIODIC_REFRESH
+ * @brief Request message for ARP_PERIODIC_REFRESH
  */
 struct PACKED morse_cmd_req_arp_periodic_refresh
 {
     struct morse_cmd_arp_periodic_params config;
 };
 
-#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_PERIOD          BIT(0)
-#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_RETRY_COUNT     BIT(1)
-#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_RETRY_INTERVAL  BIT(2)
-#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_SRC_IP_ADDR     BIT(3)
-#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_DEST_IP_ADDR    BIT(4)
-#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_SRC_PORT        BIT(5)
-#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_DEST_PORT       BIT(6)
+#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_PERIOD         BIT(0)
+#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_RETRY_COUNT    BIT(1)
+#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_RETRY_INTERVAL BIT(2)
+#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_SRC_IP_ADDR    BIT(3)
+#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_DEST_IP_ADDR   BIT(4)
+#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_SRC_PORT       BIT(5)
+#define MORSE_CMD_TCP_KEEPALIVE_SET_CFG_DEST_PORT      BIT(6)
 
 /**
- * morse_cmd_req_set_tcp_keepalive - request message for SET_TCP_KEEPALIVE
+ * @brief Request message for SET_TCP_KEEPALIVE
  */
 struct PACKED morse_cmd_req_set_tcp_keepalive
 {
@@ -1063,14 +1090,15 @@ struct PACKED morse_cmd_req_set_tcp_keepalive
     __le16 period_s;
 };
 
-enum morse_cmd_power_mode {
-    MORSE_CMD_POWER_MODE_SNOOZE     = 0,
+enum morse_cmd_power_mode
+{
+    MORSE_CMD_POWER_MODE_SNOOZE = 0,
     MORSE_CMD_POWER_MODE_DEEP_SLEEP = 1,
-    MORSE_CMD_POWER_MODE_HIBERNATE  = 2,
+    MORSE_CMD_POWER_MODE_HIBERNATE = 2,
 };
 
 /**
- * morse_cmd_req_force_power_mode - request message for FORCE_POWER_MODE
+ * @brief Request message for FORCE_POWER_MODE
  */
 struct PACKED morse_cmd_req_force_power_mode
 {
@@ -1078,15 +1106,17 @@ struct PACKED morse_cmd_req_force_power_mode
     __le32 mode;
 };
 
-enum morse_cmd_net_ip_subcmd {
-    MORSE_CMD_NET_IP_SUBCMD_CONFIG  = 1,
-    MORSE_CMD_NET_IP_SUBCMD_START   = 2,
+enum morse_cmd_net_ip_subcmd
+{
+    MORSE_CMD_NET_IP_SUBCMD_CONFIG = 1,
+    MORSE_CMD_NET_IP_SUBCMD_START = 2,
 };
 
-enum morse_cmd_net_ip_config_val {
-    MORSE_CMD_NET_IP_CONFIG_VAL_IP          = BIT(0),
-    MORSE_CMD_NET_IP_CONFIG_VAL_NETMASK     = BIT(1),
-    MORSE_CMD_NET_IP_CONFIG_VAL_GATEWAY     = BIT(2),
+enum morse_cmd_net_ip_config_val
+{
+    MORSE_CMD_NET_IP_CONFIG_VAL_IP = BIT(0),
+    MORSE_CMD_NET_IP_CONFIG_VAL_NETMASK = BIT(1),
+    MORSE_CMD_NET_IP_CONFIG_VAL_GATEWAY = BIT(2),
     MORSE_CMD_NET_IP_CONFIG_VAL_GATEWAY_MAC = BIT(3),
 };
 
@@ -1118,27 +1148,31 @@ struct PACKED morse_cmd_net_ip_configure
 };
 
 /**
- * morse_cmd_req_net_ip - request message for NET_IP
+ * @brief Request message for NET_IP
  */
 struct PACKED morse_cmd_req_net_ip
 {
     /** NET_IP subcommand @ref morse_cmd_net_ip_subcmd */
     __le32 sub_cmd;
-    union {
+
+    union
+    {
         struct morse_cmd_net_ip_configure configure;
     };
 };
 
-enum morse_cmd_tcp_periodic_subcmd {
-    MORSE_CMD_TCP_PERIODIC_SUBCMD_CONFIG        = 1,
-    MORSE_CMD_TCP_PERIODIC_SUBCMD_CONNECT       = 2,
-    MORSE_CMD_TCP_PERIODIC_SUBCMD_TX            = 3,
-    MORSE_CMD_TCP_PERIODIC_SUBCMD_DISCONNECT    = 4,
+enum morse_cmd_tcp_periodic_subcmd
+{
+    MORSE_CMD_TCP_PERIODIC_SUBCMD_CONFIG = 1,
+    MORSE_CMD_TCP_PERIODIC_SUBCMD_CONNECT = 2,
+    MORSE_CMD_TCP_PERIODIC_SUBCMD_TX = 3,
+    MORSE_CMD_TCP_PERIODIC_SUBCMD_DISCONNECT = 4,
 };
 
-enum morse_cmd_tcp_periodic_config_val {
-    MORSE_CMD_TCP_PERIODIC_CONFIG_VAL_PERIODICITY       = BIT(0),
-    MORSE_CMD_TCP_PERIODIC_CONFIG_VAL_PAYLOAD           = BIT(1),
+enum morse_cmd_tcp_periodic_config_val
+{
+    MORSE_CMD_TCP_PERIODIC_CONFIG_VAL_PERIODICITY = BIT(0),
+    MORSE_CMD_TCP_PERIODIC_CONFIG_VAL_PAYLOAD = BIT(1),
     MORSE_CMD_TCP_PERIODIC_CONFIG_VAL_EVT_ON_DISCONNECT = BIT(2),
 };
 
@@ -1188,7 +1222,7 @@ struct PACKED morse_cmd_tcp_periodic_connect
 };
 
 /**
- * morse_cmd_req_tcp_periodic - request message for TCP_PERIODIC
+ * @brief Request message for TCP_PERIODIC
  *
  * Under some modes of operation, an offloaded TCP/IP socket may be opened on chip. Arbitrary TCP
  * data can be periodically transmitted from this socket.
@@ -1197,14 +1231,16 @@ struct PACKED morse_cmd_req_tcp_periodic
 {
     /** Subcommand @ref morse_cmd_tcp_periodic_subcmd */
     __le32 sub_cmd;
-    union {
+
+    union
+    {
         struct morse_cmd_tcp_periodic_config configure;
         struct morse_cmd_tcp_periodic_connect connect;
     };
 };
 
 /**
- * morse_cmd_req_set_listen_interval - request message for SET_LISTEN_INTERVAL
+ * @brief Request message for SET_LISTEN_INTERVAL
  */
 struct PACKED morse_cmd_req_set_listen_interval
 {
@@ -1212,7 +1248,7 @@ struct PACKED morse_cmd_req_set_listen_interval
 };
 
 /**
- * morse_cmd_req_set_ampdu - request message for SET_AMPDU
+ * @brief Request message for SET_AMPDU
  */
 struct PACKED morse_cmd_req_set_ampdu
 {
@@ -1220,7 +1256,7 @@ struct PACKED morse_cmd_req_set_ampdu
 };
 
 /**
- * morse_cmd_req_set_s1g_op_class - request message for SET_S1G_OP_CLASS
+ * @brief Request message for SET_S1G_OP_CLASS
  */
 struct PACKED morse_cmd_req_set_s1g_op_class
 {
@@ -1229,7 +1265,7 @@ struct PACKED morse_cmd_req_set_s1g_op_class
 };
 
 /**
- * morse_cmd_req_send_wake_action_frame - request message for SEND_WAKE_ACTION_FRAME
+ * @brief Request message for SEND_WAKE_ACTION_FRAME
  */
 struct PACKED morse_cmd_req_send_wake_action_frame
 {
@@ -1241,23 +1277,23 @@ struct PACKED morse_cmd_req_send_wake_action_frame
 #define MORSE_CMD_MAX_VENDOR_IE_LENGTH 255
 
 /** VENDOR_IE_CONFIG management flags */
-#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_BEACON        BIT(0)
-#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_PROBE_REQ     BIT(1)
-#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_PROBE_RESP    BIT(2)
-#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_ASSOC_REQ     BIT(3)
-#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_ASSOC_RESP    BIT(4)
+#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_BEACON     BIT(0)
+#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_PROBE_REQ  BIT(1)
+#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_PROBE_RESP BIT(2)
+#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_ASSOC_REQ  BIT(3)
+#define MORSE_CMD_VENDOR_IE_TYPE_FLAG_ASSOC_RESP BIT(4)
 
-enum morse_cmd_vendor_ie_op {
-    MORSE_CMD_VENDOR_IE_OP_ADD_ELEMENT      = 0,
-    MORSE_CMD_VENDOR_IE_OP_CLEAR_ELEMENTS   = 1,
-    MORSE_CMD_VENDOR_IE_OP_ADD_FILTER       = 2,
-    MORSE_CMD_VENDOR_IE_OP_CLEAR_FILTERS    = 3,
-    MORSE_CMD_VENDOR_IE_OP_MAX              = UINT16_MAX,
-    MORSE_CMD_VENDOR_IE_OP_INVALID          = MORSE_CMD_VENDOR_IE_OP_MAX,
+enum morse_cmd_vendor_ie_op
+{
+    MORSE_CMD_VENDOR_IE_OP_ADD_ELEMENT = 0,
+    MORSE_CMD_VENDOR_IE_OP_CLEAR_ELEMENTS = 1,
+    MORSE_CMD_VENDOR_IE_OP_ADD_FILTER = 2,
+    MORSE_CMD_VENDOR_IE_OP_CLEAR_FILTERS = 3,
+    MORSE_CMD_VENDOR_IE_OP_INVALID = UINT16_MAX,
 };
 
 /**
- * morse_cmd_req_vendor_ie_config - request message for VENDOR_IE_CONFIG
+ * @brief Request message for VENDOR_IE_CONFIG
  */
 struct PACKED morse_cmd_req_vendor_ie_config
 {
@@ -1267,17 +1303,18 @@ struct PACKED morse_cmd_req_vendor_ie_config
 };
 
 /**
- * morse_cmd_resp_vendor_ie_config - response message for VENDOR_IE_CONFIG
+ * @brief Response message for VENDOR_IE_CONFIG
  */
 struct PACKED morse_cmd_resp_vendor_ie_config
 {
 };
 
-enum morse_cmd_twt_conf_op {
-    MORSE_CMD_TWT_CONF_OP_CONFIGURE                 = 0,
-    MORSE_CMD_TWT_CONF_OP_FORCE_INSTALL_AGREEMENT   = 1,
-    MORSE_CMD_TWT_CONF_OP_REMOVE_AGREEMENT          = 2,
-    MORSE_CMD_TWT_CONF_OP_CONFIGURE_EXPLICIT        = 3,
+enum morse_cmd_twt_conf_op
+{
+    MORSE_CMD_TWT_CONF_OP_CONFIGURE = 0,
+    MORSE_CMD_TWT_CONF_OP_FORCE_INSTALL_AGREEMENT = 1,
+    MORSE_CMD_TWT_CONF_OP_REMOVE_AGREEMENT = 2,
+    MORSE_CMD_TWT_CONF_OP_CONFIGURE_EXPLICIT = 3,
 };
 
 /**
@@ -1300,7 +1337,7 @@ union PACKED morse_cmd_wake_interval
 };
 
 /**
- * morse_cmd_req_set_twt_conf - request message for SET_TWT_CONF
+ * @brief Request message for SET_TWT_CONF
  */
 struct PACKED morse_cmd_req_set_twt_conf
 {
@@ -1334,7 +1371,7 @@ struct PACKED morse_cmd_channel_info
 };
 
 /**
- * morse_cmd_resp_get_available_channels - response message for GET_AVAILABLE_CHANNELS
+ * @brief Response message for GET_AVAILABLE_CHANNELS
  */
 struct PACKED morse_cmd_resp_get_available_channels
 {
@@ -1342,15 +1379,15 @@ struct PACKED morse_cmd_resp_get_available_channels
     struct morse_cmd_channel_info channels[MORSE_CMD_MAX_AVAILABLE_CHANNELS];
 };
 
-#define MORSE_CMD_S1G_CAP0_S1G_LONG     BIT(0)
-#define MORSE_CMD_S1G_CAP0_SGI_1MHZ     BIT(1)
-#define MORSE_CMD_S1G_CAP0_SGI_2MHZ     BIT(2)
-#define MORSE_CMD_S1G_CAP0_SGI_4MHZ     BIT(3)
-#define MORSE_CMD_S1G_CAP0_SGI_8MHZ     BIT(4)
-#define MORSE_CMD_S1G_CAP0_SGI_16MHZ    BIT(5)
+#define MORSE_CMD_S1G_CAP0_S1G_LONG  BIT(0)
+#define MORSE_CMD_S1G_CAP0_SGI_1MHZ  BIT(1)
+#define MORSE_CMD_S1G_CAP0_SGI_2MHZ  BIT(2)
+#define MORSE_CMD_S1G_CAP0_SGI_4MHZ  BIT(3)
+#define MORSE_CMD_S1G_CAP0_SGI_8MHZ  BIT(4)
+#define MORSE_CMD_S1G_CAP0_SGI_16MHZ BIT(5)
 
 /**
- * morse_cmd_req_set_ecsa_s1g_info - request message for SET_ECSA_S1G_INFO
+ * @brief Request message for SET_ECSA_S1G_INFO
  */
 struct PACKED morse_cmd_req_set_ecsa_s1g_info
 {
@@ -1376,23 +1413,24 @@ struct PACKED morse_cmd_req_set_ecsa_s1g_info
 };
 
 /**
- * morse_cmd_resp_get_hw_version - response message for GET_HW_VERSION
+ * @brief Response message for GET_HW_VERSION
  */
 struct PACKED morse_cmd_resp_get_hw_version
 {
     uint8_t hw_version[64];
 };
 
-#define MORSE_CMD_CAC_CFG_CHANGE_RULE_MAX   8
-#define MORSE_CMD_CAC_CFG_ARFS_MAX          99
-#define MORSE_CMD_CAC_CFG_CHANGE_MAX        99
-#define MORSE_CMD_CAC_CFG_CHANGE_STEP       5
+#define MORSE_CMD_CAC_CFG_CHANGE_RULE_MAX 8
+#define MORSE_CMD_CAC_CFG_ARFS_MAX        99
+#define MORSE_CMD_CAC_CFG_CHANGE_MAX      99
+#define MORSE_CMD_CAC_CFG_CHANGE_STEP     5
 
-enum morse_cmd_cac_op {
-    MORSE_CMD_CAC_OP_DISABLE    = 0,
-    MORSE_CMD_CAC_OP_ENABLE     = 1,
-    MORSE_CMD_CAC_OP_CFG_GET    = 2,
-    MORSE_CMD_CAC_OP_CFG_SET    = 3,
+enum morse_cmd_cac_op
+{
+    MORSE_CMD_CAC_OP_DISABLE = 0,
+    MORSE_CMD_CAC_OP_ENABLE = 1,
+    MORSE_CMD_CAC_OP_CFG_GET = 2,
+    MORSE_CMD_CAC_OP_CFG_SET = 3,
 };
 
 /**
@@ -1407,7 +1445,7 @@ struct PACKED morse_cmd_cac_change_rule
 };
 
 /**
- * morse_cmd_req_cac - request message for CAC
+ * @brief Request message for CAC
  */
 struct PACKED morse_cmd_req_cac
 {
@@ -1420,7 +1458,7 @@ struct PACKED morse_cmd_req_cac
 };
 
 /**
- * morse_cmd_resp_cac - response message for CAC
+ * @brief Response message for CAC
  */
 struct PACKED morse_cmd_resp_cac
 {
@@ -1434,7 +1472,7 @@ struct PACKED morse_cmd_resp_cac
 #define MORSE_CMD_IFNAMSIZ 16
 
 /**
- * morse_cmd_req_mbssid - request message for MBSSID
+ * @brief Request message for MBSSID
  */
 struct PACKED morse_cmd_req_mbssid
 {
@@ -1444,14 +1482,14 @@ struct PACKED morse_cmd_req_mbssid
     int8_t transmitter_iface[MORSE_CMD_IFNAMSIZ];
 };
 
-#define MORSE_CMD_MESH_ID_LEN_MAX               32
-#define MORSE_CMD_MESH_BEACONLESS_MODE_DISABLE  0
-#define MORSE_CMD_MESH_BEACONLESS_MODE_ENABLE   1
-#define MORSE_CMD_MESH_PEER_LINKS_MIN           0
-#define MORSE_CMD_MESH_PEER_LINKS_MAX           10
+#define MORSE_CMD_MESH_ID_LEN_MAX              32
+#define MORSE_CMD_MESH_BEACONLESS_MODE_DISABLE 0
+#define MORSE_CMD_MESH_BEACONLESS_MODE_ENABLE  1
+#define MORSE_CMD_MESH_PEER_LINKS_MIN          0
+#define MORSE_CMD_MESH_PEER_LINKS_MAX          10
 
 /**
- * morse_cmd_req_set_mesh_config - request message for SET_MESH_CONFIG
+ * @brief Request message for SET_MESH_CONFIG
  *
  * Structure derived from struct morse_mesh_config in morse.h in the driver
  */
@@ -1468,7 +1506,7 @@ struct PACKED morse_cmd_req_set_mesh_config
 };
 
 /**
- * morse_cmd_req_set_mcba_conf - request message for SET_MCBA_CONF
+ * @brief Request message for SET_MCBA_CONF
  */
 struct PACKED morse_cmd_req_set_mcba_conf
 {
@@ -1485,7 +1523,7 @@ struct PACKED morse_cmd_req_set_mcba_conf
 };
 
 /**
- * morse_cmd_req_dynamic_peering_config - request message for DYNAMIC_PEERING_CONFIG
+ * @brief Request message for DYNAMIC_PEERING_CONFIG
  */
 struct PACKED morse_cmd_req_dynamic_peering_config
 {
@@ -1497,17 +1535,21 @@ struct PACKED morse_cmd_req_dynamic_peering_config
     __le32 blacklist_timeout;
 };
 
-#define MORSE_CMD_CFG_RAW_FLAG_ENABLE   BIT(0)
-#define MORSE_CMD_CFG_RAW_FLAG_DELETE   BIT(1)
-#define MORSE_CMD_CFG_RAW_FLAG_UPDATE   BIT(2)
+#define MORSE_CMD_CFG_RAW_FLAG_ENABLE  BIT(0)
+#define MORSE_CMD_CFG_RAW_FLAG_DELETE  BIT(1)
+#define MORSE_CMD_CFG_RAW_FLAG_UPDATE  BIT(2)
+#define MORSE_CMD_CFG_RAW_FLAG_DYNAMIC BIT(3)
 
-enum morse_cmd_raw_tlv_tag {
-    MORSE_CMD_RAW_TLV_TAG_SLOT_DEF      = 0,
-    MORSE_CMD_RAW_TLV_TAG_GROUP         = 1,
-    MORSE_CMD_RAW_TLV_TAG_START_TIME    = 2,
-    MORSE_CMD_RAW_TLV_TAG_PRAW          = 3,
-    MORSE_CMD_RAW_TLV_TAG_BCN_SPREAD    = 4,
-    MORSE_CMD_RAW_TLV_TAG_LAST          = 5,
+enum morse_cmd_raw_tlv_tag
+{
+    MORSE_CMD_RAW_TLV_TAG_SLOT_DEF = 0,
+    MORSE_CMD_RAW_TLV_TAG_GROUP = 1,
+    MORSE_CMD_RAW_TLV_TAG_START_TIME = 2,
+    MORSE_CMD_RAW_TLV_TAG_PRAW = 3,
+    MORSE_CMD_RAW_TLV_TAG_BCN_SPREAD = 4,
+    MORSE_CMD_RAW_TLV_TAG_DYN_GLOBAL = 5,
+    MORSE_CMD_RAW_TLV_TAG_DYN_CONFIG = 6,
+    MORSE_CMD_RAW_TLV_TAG_LAST = 7,
 };
 
 /**
@@ -1516,7 +1558,7 @@ enum morse_cmd_raw_tlv_tag {
 struct PACKED morse_cmd_raw_tlv_slot_def
 {
     uint8_t tag;
-    /** Total length of the RAW window. This / num_slots = slot_duration */
+    /** Total length of the RAW window. @ref raw_duration_us / num_slots = slot_duration */
     __le32 raw_duration_us;
     /** Number of individual "slots" within the RAW window */
     uint8_t num_slots;
@@ -1568,6 +1610,34 @@ struct PACKED morse_cmd_raw_tlv_bcn_spread
 };
 
 /**
+ * Global configuration for dynamic RAW configuration
+ */
+struct PACKED morse_cmd_raw_tlv_dyn_global
+{
+    uint8_t tag;
+    /** Number of dynamic RAW confgis present */
+    __le16 num_configs;
+    /** The maximum number of beacon frames to add RAW configs to */
+    __le16 num_bcn_indexes;
+};
+
+/**
+ * Single dynamic RAW config entry in the batch of RAW configs
+ */
+struct PACKED morse_cmd_raw_tlv_dyn_config
+{
+    uint8_t tag;
+    /** Unique config id of dynamic RAW config entry */
+    __le16 id;
+    /** Index of beacon to include this RAW config into */
+    __le16 index;
+    /** Length of RAW config */
+    __le16 len;
+    /** RAW TLV data */
+    uint8_t variable[];
+};
+
+/**
  * RAW TLV data
  */
 union PACKED morse_cmd_raw_tlvs
@@ -1578,10 +1648,12 @@ union PACKED morse_cmd_raw_tlvs
     struct morse_cmd_raw_tlv_start_time start_time;
     struct morse_cmd_raw_tlv_praw praw;
     struct morse_cmd_raw_tlv_bcn_spread bcn_spread;
+    struct morse_cmd_raw_tlv_dyn_global dyn_global;
+    struct morse_cmd_raw_tlv_dyn_config dyn_config;
 };
 
 /**
- * morse_cmd_req_config_raw - request message for CONFIG_RAW
+ * @brief Request message for CONFIG_RAW
  */
 struct PACKED morse_cmd_req_config_raw
 {
@@ -1619,7 +1691,7 @@ struct PACKED morse_cmd_rc_stats_entry
 };
 
 /**
- * morse_cmd_resp_get_rc_stats - response message for GET_RC_STATS
+ * @brief Response message for GET_RC_STATS
  */
 struct PACKED morse_cmd_resp_get_rc_stats
 {
@@ -1630,7 +1702,7 @@ struct PACKED morse_cmd_resp_get_rc_stats
 };
 
 /**
- * morse_cmd_req_set_tx_pkt_lifetime_usecs - request message for SET_TX_PKT_LIFETIME_USECS
+ * @brief Request message for SET_TX_PKT_LIFETIME_USECS
  */
 struct PACKED morse_cmd_req_set_tx_pkt_lifetime_usecs
 {
@@ -1638,34 +1710,43 @@ struct PACKED morse_cmd_req_set_tx_pkt_lifetime_usecs
 };
 
 /**
- * morse_cmd_resp_set_tx_pkt_lifetime_usecs - response message for SET_TX_PKT_LIFETIME_USECS
+ * @brief Response message for SET_TX_PKT_LIFETIME_USECS
  */
 struct PACKED morse_cmd_resp_set_tx_pkt_lifetime_usecs
 {
 };
 
 /**
- * morse_cmd_req_set_physm_watchdog - request message for SET_PHYSM_WATCHDOG
+ * @brief Request message for SET_PHYSM_WATCHDOG
  */
 struct PACKED morse_cmd_req_set_physm_watchdog
 {
     uint8_t physm_watchdog_en;
 };
 
+/**
+ * @brief Request message for TX_POLAR
+ */
+struct PACKED morse_cmd_req_tx_polar
+{
+    uint8_t enable;
+};
 
-enum morse_cmd_otp_region {
+
+enum morse_cmd_otp_region
+{
     /** OTP bank specified by the bank num */
-    MORSE_CMD_OTP_REGION_ALL_BANK   = 0,
+    MORSE_CMD_OTP_REGION_ALL_BANK = 0,
     /** Access chip serial OTP bank */
-    MORSE_CMD_OTP_REGION_SERIAL     = 1,
+    MORSE_CMD_OTP_REGION_SERIAL = 1,
     /** Access country code OTP bank */
-    MORSE_CMD_OTP_REGION_COUNTRY    = 2,
+    MORSE_CMD_OTP_REGION_COUNTRY = 2,
     /** Access board type OTP bank */
-    MORSE_CMD_OTP_REGION_BOARDTYPE  = 3,
+    MORSE_CMD_OTP_REGION_BOARDTYPE = 3,
 };
 
 /**
- * morse_cmd_req_otp - request message for OTP
+ * @brief Request message for OTP
  */
 struct PACKED morse_cmd_req_otp
 {
@@ -1678,7 +1759,7 @@ struct PACKED morse_cmd_req_otp
 };
 
 /**
- * morse_cmd_resp_otp - response message for OTP
+ * @brief Response message for OTP
  *
  * Value written to the OTP bank
  */
@@ -1688,59 +1769,71 @@ struct PACKED morse_cmd_resp_otp
 };
 
 /**
- * morse_cmd_req_max_ampdu_length - request message for MAX_AMPDU_LENGTH
+ * @brief Request message for MAX_AMPDU_LENGTH
  */
 struct PACKED morse_cmd_req_max_ampdu_length
 {
     __sle32 n_bytes;
 };
 
+/**
+ * @brief Request message for MEDIUM_EVAL
+ */
+struct PACKED morse_cmd_req_medium_eval
+{
+    /** @ref enable/disable medium evaluation */
+    uint8_t enable;
+};
 
-#define MORSE_CMD_HOST_BLOCK_TX_FRAMES  BIT(0)
-#define MORSE_CMD_HOST_BLOCK_TX_CMD     BIT(1)
 
-enum morse_cmd_param_action {
-    MORSE_CMD_PARAM_ACTION_SET  = 0,
-    MORSE_CMD_PARAM_ACTION_GET  = 1,
+#define MORSE_CMD_HOST_BLOCK_TX_FRAMES BIT(0)
+#define MORSE_CMD_HOST_BLOCK_TX_CMD    BIT(1)
+
+enum morse_cmd_param_action
+{
+    MORSE_CMD_PARAM_ACTION_SET = 0,
+    MORSE_CMD_PARAM_ACTION_GET = 1,
     MORSE_CMD_PARAM_ACTION_LAST = 2,
-    MORSE_CMD_PARAM_ACTION_MAX  = UINT32_MAX,
 };
 
-enum morse_cmd_slow_clock_mode {
+enum morse_cmd_slow_clock_mode
+{
     /** Slow clock source would be automatically selected */
-    MORSE_CMD_SLOW_CLOCK_MODE_AUTO      = 0,
+    MORSE_CMD_SLOW_CLOCK_MODE_AUTO = 0,
     /** Slow clock source would be set to internal */
-    MORSE_CMD_SLOW_CLOCK_MODE_INTERNAL  = 1,
+    MORSE_CMD_SLOW_CLOCK_MODE_INTERNAL = 1,
 };
 
-enum morse_cmd_param_id {
-    MORSE_CMD_PARAM_ID_MAX_TRAFFIC_DELIVERY_WAIT_US     = 0,
-    MORSE_CMD_PARAM_ID_EXTRA_ACK_TIMEOUT_ADJUST_US      = 1,
-    MORSE_CMD_PARAM_ID_TX_STATUS_FLUSH_WATERMARK        = 2,
-    MORSE_CMD_PARAM_ID_TX_STATUS_FLUSH_MIN_AMPDU_SIZE   = 3,
-    MORSE_CMD_PARAM_ID_POWERSAVE_TYPE                   = 4,
-    MORSE_CMD_PARAM_ID_SNOOZE_DURATION_ADJUST_US        = 5,
-    MORSE_CMD_PARAM_ID_TX_BLOCK                         = 6,
-    MORSE_CMD_PARAM_ID_FORCED_SNOOZE_PERIOD_US          = 7,
-    MORSE_CMD_PARAM_ID_WAKE_ACTION_GPIO                 = 8,
-    MORSE_CMD_PARAM_ID_WAKE_ACTION_GPIO_PULSE_MS        = 9,
-    MORSE_CMD_PARAM_ID_CONNECTION_MONITOR_GPIO          = 10,
-    MORSE_CMD_PARAM_ID_INPUT_TRIGGER_GPIO               = 11,
-    MORSE_CMD_PARAM_ID_INPUT_TRIGGER_MODE               = 12,
-    MORSE_CMD_PARAM_ID_COUNTRY                          = 13,
-    MORSE_CMD_PARAM_ID_RTS_THRESHOLD                    = 14,
-    MORSE_CMD_PARAM_ID_HOST_TX_BLOCK                    = 15,
-    MORSE_CMD_PARAM_ID_MEM_RETENTION_CODE               = 16,
-    MORSE_CMD_PARAM_ID_NON_TIM_MODE                     = 17,
-    MORSE_CMD_PARAM_ID_DYNAMIC_PS_TIMEOUT_MS            = 18,
-    MORSE_CMD_PARAM_ID_HOME_CHANNEL_DWELL_MS            = 19,
-    MORSE_CMD_PARAM_ID_SLOW_CLOCK_MODE                  = 20,
-    MORSE_CMD_PARAM_ID_LAST                             = 21,
-    MORSE_CMD_PARAM_ID_MAX                              = UINT32_MAX,
+enum morse_cmd_param_id
+{
+    MORSE_CMD_PARAM_ID_MAX_TRAFFIC_DELIVERY_WAIT_US = 0,
+    MORSE_CMD_PARAM_ID_EXTRA_ACK_TIMEOUT_ADJUST_US = 1,
+    MORSE_CMD_PARAM_ID_TX_STATUS_FLUSH_WATERMARK = 2,
+    MORSE_CMD_PARAM_ID_TX_STATUS_FLUSH_MIN_AMPDU_SIZE = 3,
+    MORSE_CMD_PARAM_ID_POWERSAVE_TYPE = 4,
+    MORSE_CMD_PARAM_ID_SNOOZE_DURATION_ADJUST_US = 5,
+    MORSE_CMD_PARAM_ID_TX_BLOCK = 6,
+    MORSE_CMD_PARAM_ID_FORCED_SNOOZE_PERIOD_US = 7,
+    MORSE_CMD_PARAM_ID_WAKE_ACTION_GPIO = 8,
+    MORSE_CMD_PARAM_ID_WAKE_ACTION_GPIO_PULSE_MS = 9,
+    MORSE_CMD_PARAM_ID_CONNECTION_MONITOR_GPIO = 10,
+    MORSE_CMD_PARAM_ID_INPUT_TRIGGER_GPIO = 11,
+    MORSE_CMD_PARAM_ID_INPUT_TRIGGER_MODE = 12,
+    MORSE_CMD_PARAM_ID_COUNTRY = 13,
+    MORSE_CMD_PARAM_ID_RTS_THRESHOLD = 14,
+    MORSE_CMD_PARAM_ID_HOST_TX_BLOCK = 15,
+    MORSE_CMD_PARAM_ID_MEM_RETENTION_CODE = 16,
+    MORSE_CMD_PARAM_ID_NON_TIM_MODE = 17,
+    MORSE_CMD_PARAM_ID_DYNAMIC_PS_TIMEOUT_MS = 18,
+    MORSE_CMD_PARAM_ID_HOME_CHANNEL_DWELL_MS = 19,
+    MORSE_CMD_PARAM_ID_SLOW_CLOCK_MODE = 20,
+    MORSE_CMD_PARAM_ID_FRAGMENT_THRESHOLD = 21,
+    MORSE_CMD_PARAM_ID_BEACON_LOSS_COUNT = 22,
+    MORSE_CMD_PARAM_ID_LAST = 23,
 };
 
 /**
- * morse_cmd_req_get_set_generic_param - request message for GET_SET_GENERIC_PARAM
+ * @brief Request message for GET_SET_GENERIC_PARAM
  */
 struct PACKED morse_cmd_req_get_set_generic_param
 {
@@ -1755,7 +1848,7 @@ struct PACKED morse_cmd_req_get_set_generic_param
 };
 
 /**
- * morse_cmd_resp_get_set_generic_param - response message for GET_SET_GENERIC_PARAM
+ * @brief Response message for GET_SET_GENERIC_PARAM
  */
 struct PACKED morse_cmd_resp_get_set_generic_param
 {

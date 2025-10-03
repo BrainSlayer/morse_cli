@@ -44,11 +44,12 @@ static void print_rc_stats(struct morse_cmd_resp_get_rc_stats *rc_stats)
     /* This output format vaguely matches mmrc_debugfs.c in the Linux driver, but
      * fullmac rate control does not give as much detail about each rate so
      * there are fewer columns here. */
-    mctrl_print("   bw   guard mcs#/ss index  tot_suc  tot_att\n");
+    mctrl_print("             -----Rate----- ---------Total---------\n");
+    mctrl_print(" BW   Guard  MCS   SS Index     Success     Attempt\n");
     for (size_t i = 0; i < le32toh(rc_stats->n_entries); i++)
     {
         uint32_t rate_info = le32toh(rc_stats->entries[i].rate_info);
-        mctrl_print("%6s %5s  MCS%-2u/1%4zu %9u%9u\n",
+        mctrl_print("%5s %5s  MCS%-2u  1  %4zu %11u %11u\n",
                 bw_mhz_from_rate_info(rate_info),
                 guard_interval_from_rate_info(rate_info),
                 mcs_from_rate_info(rate_info),

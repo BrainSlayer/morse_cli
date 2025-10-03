@@ -449,7 +449,7 @@ void morsectrl_transport_debug(struct morsectrl_transport *transport, const char
     {
         va_list args;
         va_start(args, fmt);
-        mctrl_print(fmt, args);
+        mctrl_vprint(fmt, args);
         va_end(args);
     }
 }

@@ -16,7 +16,6 @@
 */
 struct statistics_offchip_data *get_stats_offchip(const struct morsectrl *mors, stats_tlv_tag_t tag)
 {
-#ifdef ENABLE_TRANS_NL80211
     struct statistics_offchip_data *res = NULL;
     for (int i = 0; i < mors->n_stats; i++)
     {
@@ -27,9 +26,6 @@ struct statistics_offchip_data *get_stats_offchip(const struct morsectrl *mors, 
         }
     }
     return res;
-#else
-    return NULL;
-#endif
 }
 
 

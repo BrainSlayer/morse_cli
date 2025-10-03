@@ -121,6 +121,7 @@ struct uart_ctx *uart_init(const struct uart_config *config)
         free(ctx);
         return NULL;
     }
+    tcflush(ctx->fd, TCIOFLUSH);
     return ctx;
 }
 
@@ -131,6 +132,7 @@ int uart_deinit(struct uart_ctx *ctx)
     {
         if (ctx->fd > 0)
         {
+            tcflush(ctx->fd, TCIOFLUSH);
             ret = close(ctx->fd);
         }
         free(ctx);

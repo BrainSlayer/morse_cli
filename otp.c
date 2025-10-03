@@ -56,7 +56,7 @@ int otp(struct morsectrl *mors, int argc, char *argv[])
 
 exit:
     if (ret == 0 && !req->write_otp)
-        mctrl_print("OTP Bank %d: 0x%x\n", args.bank_num->ival[0], resp->bank_val);
+        mctrl_print("OTP Bank %d: 0x%08x\n", args.bank_num->ival[0], resp->bank_val);
 
     morsectrl_transport_buff_free(req_tbuff);
     morsectrl_transport_buff_free(rsp_tbuff);

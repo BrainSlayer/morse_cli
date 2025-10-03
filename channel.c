@@ -15,6 +15,7 @@
 #include "command.h"
 #include "channel.h"
 #include "transport/transport.h"
+#include "utilities.h"
 
 static struct
 {
@@ -49,13 +50,44 @@ int channel_init(struct morsectrl *mors, struct mm_argtable *mm_args)
     return 0;
 }
 
+static void channel_set_invalid_channel_handler(struct morsectrl *mors,
+    struct morse_cmd_req_set_channel *cmd_set, struct morsectrl_transport_buff *cmd_get_tbuff,
+    struct morsectrl_transport_buff *rsp_get_tbuff, struct morse_cmd_resp_get_channel *resp_get)
+{
+    uint32_t freq_khz = HZ_TO_KHZ(le32toh(cmd_set->op_chan_freq_hz));
+    uint8_t op_bw_mhz = cmd_set->op_bw_mhz;
+    uint8_t pri_bw_mhz = cmd_set->pri_bw_mhz;
+    uint8_t pri_1mhz_chan_idx = cmd_set->pri_1mhz_chan_idx;
+    int ret = -1;
+
+    /* Get current configured channel from chip */
+    ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_GET_CHANNEL_FULL,
+                                cmd_get_tbuff, rsp_get_tbuff);
+    if (ret < 0)
+    {
+        mctrl_err("Failed to get channel\n");
+        return;
+    }
+
+    /* Print the invalid channel configuration combined with parameters obtained from chip */
+    mctrl_err("Invalid combination of parameters - "
+        "freq=%u, bw%s=%u, primary bw%s=%u, primary idx%s=%u\n", freq_khz,
+        (op_bw_mhz == MORSE_CMD_CHANNEL_BW_NOT_SET) ? " (from chip)" : "",
+        (op_bw_mhz == MORSE_CMD_CHANNEL_BW_NOT_SET) ? resp_get->op_chan_bw_mhz : op_bw_mhz,
+        (pri_bw_mhz == MORSE_CMD_CHANNEL_BW_NOT_SET) ? " (from chip)" : "",
+        (pri_bw_mhz == MORSE_CMD_CHANNEL_BW_NOT_SET) ? resp_get->pri_chan_bw_mhz : pri_bw_mhz,
+        (pri_1mhz_chan_idx == MORSE_CMD_CHANNEL_IDX_NOT_SET) ? " (from chip)" : "",
+        (pri_1mhz_chan_idx == MORSE_CMD_CHANNEL_IDX_NOT_SET) ?
+            resp_get->pri_1mhz_chan_idx : pri_1mhz_chan_idx);
+}
+
 int channel(struct morsectrl *mors, int argc, char *argv[])
 {
     int ret = -1;
     uint32_t freq_khz = 0;
-    uint8_t op_channel_bandwidth = BANDWIDTH_DEFAULT;
-    uint8_t primary_channel_bandwidth = BANDWIDTH_DEFAULT;
-    uint8_t primary_1mhz_channel_index = PRIMARY_1MHZ_CHANNEL_INDEX_DEFAULT;
+    uint8_t op_channel_bandwidth = MORSE_CMD_CHANNEL_BW_NOT_SET;
+    uint8_t primary_channel_bandwidth = MORSE_CMD_CHANNEL_BW_NOT_SET;
+    uint8_t primary_1mhz_channel_index = MORSE_CMD_CHANNEL_IDX_NOT_SET;
     struct morse_cmd_req_set_channel *cmd_set;
     struct morse_cmd_resp_get_channel *resp_get;
     bool set_freq = false;
@@ -132,7 +164,13 @@ int channel(struct morsectrl *mors, int argc, char *argv[])
         ret = morsectrl_send_command(mors->transport, MORSE_CMD_ID_SET_CHANNEL,
                                     cmd_set_tbuff, rsp_set_tbuff);
 
-        if (ret < 0)
+        if (ret == MORSE_RET_SET_INVALID_CHAN_CONFIG)
+        {
+            channel_set_invalid_channel_handler(mors, cmd_set, cmd_get_tbuff,
+                                                rsp_get_tbuff, resp_get);
+            goto exit;
+        }
+        else if (ret < 0)
         {
             mctrl_err("Failed to set channel\n");
             goto exit;

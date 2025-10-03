@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "transport.h"
 #include "transport_private.h"
@@ -41,7 +42,7 @@
 
 static const struct morsectrl_transport_ops uart_slip_ops;
 
-/** @brief Data structure used to represent an instance of this trasport. */
+/** @brief Data structure used to represent an instance of this transport. */
 struct morsectrl_uart_slip_transport
 {
     struct morsectrl_transport common;
@@ -136,7 +137,7 @@ static int uart_slip_parse(struct morsectrl_transport **transport,
 
 
 /**
- * @brief Initalise an SLIP over UART interface.
+ * @brief Initialise an SLIP over UART interface.
  *
  * @note This should be done after parsing the configuration.
  *
@@ -160,7 +161,7 @@ static int uart_slip_init(struct morsectrl_transport *transport)
 }
 
 /**
- * @brief De-initalise an FTDI Transport.
+ * @brief De-initialise an FTDI Transport.
  *
  * @param transport The transport structure.
  * @return          0 on success otherwise relevant error.
@@ -286,8 +287,19 @@ static int uart_slip_send(struct morsectrl_transport *transport,
 
     ctx = uart_slip_ctx(transport);
 
+    clock_t timeout;
+    clock_t last_time;
+    enum
+    {
+        SLEEP_DURATION_MS = 1,
+        START_OF_TRANSFER_TIMEOUT_CLOCKS = 60 * CLOCKS_PER_SEC, /* 60 sec to allow for long ops */
+        TRANSFER_IN_PROGRESS_TIMEOUT_CLOCKS = 10 * CLOCKS_PER_SEC / 1000,
+    };
+
     while (true)
     {
+        timeout = START_OF_TRANSFER_TIMEOUT_CLOCKS;
+        last_time = clock();
         slip_rx_state_reset(&slip_rx_state);
         do
         {
@@ -300,10 +312,24 @@ static int uart_slip_send(struct morsectrl_transport *transport,
             }
             else if (ret == 0)
             {
+                if (clock() - last_time > timeout)
+                {
+                    /* Timeout occurred, exit failure */
+                    ret = -ETRANSERR;
+                    uart_slip_error(ret, "RX Timeout");
+                    goto fail;
+                }
+                sleep_ms(SLEEP_DURATION_MS);
                 continue;
             }
-
             slip_rx_status = slip_rx(&slip_rx_state, rx_char);
+
+            if (slip_rx_state.frame_started)
+            {
+                /* We have received at least one byte, set shorter timeout. */
+                last_time = clock();
+                timeout = TRANSFER_IN_PROGRESS_TIMEOUT_CLOCKS;
+            }
         } while (slip_rx_status == SLIP_RX_IN_PROGRESS);
 
         if (slip_rx_status != SLIP_RX_COMPLETE)
@@ -314,7 +340,11 @@ static int uart_slip_send(struct morsectrl_transport *transport,
             }
             uart_slip_error(-ETRANSERR, "Slip RX transfer incomplete");
             ret = -ETRANSERR;
-            goto fail;
+            /* Drop buffer and try again. Probably had some junk data in the UART stream.
+             * It is almost certain the next "complete" buffer will be junk too, but we'll handle
+             * that with CRC + SEQ check.
+             */
+            continue;
         }
 
         resp->data_len = slip_rx_state.length;

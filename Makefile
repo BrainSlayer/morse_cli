@@ -13,7 +13,7 @@ Q = @
 endif
 
 
-override MORSECTRL_VERSION_STRING = "rel_1_15_3_2025_Apr_16"
+override MORSECTRL_VERSION_STRING = "rel_1_16_4_2025_Sep_18"
 DEFAULT_INTERFACE_NAME ?= "wlan0"
 PKG_CONFIG ?= pkg-config
 
@@ -76,6 +76,8 @@ SRCS += country_code.c
 SRCS += power.c
 SRCS += rc_stats.c
 SRCS += tcp_periodic.c
+SRCS += tx_polar.c
+SRCS += medium_eval.c
 
 SRCS += transport/transport.c
 
@@ -100,7 +102,6 @@ ifeq ($(CONFIG_MORSE_TRANS_NL80211),1)
 	else
 		LINUX_LDFLAGS += -lnl-3 -lnl-genl-3 -lpthread
 	endif
-	LINUX_CFLAGS += -DENABLE_TRANS_NL80211
 	LINUX_SRCS += transport/nl80211.c
 endif
 

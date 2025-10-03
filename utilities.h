@@ -91,12 +91,28 @@ typedef union
 void mctrl_print(const char* format, ...);
 
 /**
+ * @brief Print a message to stdout
+ *
+ * @param format The format of the message
+ * @param args Variadic argument list
+ */
+void mctrl_vprint(const char* format, va_list args);
+
+/**
  * @brief Print a message to stderr
  *
  * @param format The format of the message
  * @param ... Variable length arguments
  */
 void mctrl_err(const char* format, ...);
+
+/**
+ * @brief Print a message to stderr
+ *
+ * @param format The format of the message
+ * @param args Variadic argument list
+ */
+void mctrl_verr(const char* format, va_list args);
 
 /**
  * @brief Convert str to ipv4_addr_t

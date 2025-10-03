@@ -50,6 +50,7 @@ enum morse_cmd_return_code {
     MORSE_RET_ENXIO       = -6,
     MORSE_RET_ENOMEM      = -12,
     MORSE_RET_EINVAL      = -22,
+    MORSE_RET_SET_INVALID_CHAN_CONFIG = -(0x7FF3)
 };
 
 int morsectrl_send_command(struct morsectrl_transport *transport,

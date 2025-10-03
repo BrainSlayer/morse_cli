@@ -270,7 +270,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            arg_print_errors(stdout, main_args.end, TOOL_NAME);
+            arg_print_errors(stderr, main_args.end, TOOL_NAME);
             mctrl_err("Try %s --help for more information\n", TOOL_NAME);
         }
         goto exit;

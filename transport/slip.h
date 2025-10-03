@@ -26,14 +26,16 @@ struct slip_rx_state
     size_t buffer_length;
     size_t length;
     bool escape;
+    bool frame_started;
 };
 
-#define SLIP_RX_STATE_INIT(_buffer, _buffer_length) { _buffer, _buffer_length, 0, false }
+#define SLIP_RX_STATE_INIT(_buffer, _buffer_length) { _buffer, _buffer_length, 0, false, false}
 
 static inline void slip_rx_state_reset(struct slip_rx_state *state)
 {
     state->escape = false;
     state->length = 0;
+    state->frame_started = true;
 }
 
 

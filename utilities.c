@@ -507,18 +507,28 @@ bool is_dir(const char *path)
     return false;
 }
 
+void mctrl_vprint(const char* format, va_list args)
+{
+    vfprintf(stdout, format, args);
+}
+
 void mctrl_print(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    vfprintf(stdout, format, args);
+    mctrl_vprint(format, args);
     va_end(args);
+}
+
+void mctrl_verr(const char* format, va_list args)
+{
+    vfprintf(stderr, format, args);
 }
 
 void mctrl_err(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    vfprintf(stderr, format, args);
+    mctrl_verr(format, args);
     va_end(args);
 }
